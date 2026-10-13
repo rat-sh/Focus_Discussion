@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build and test output
+dist/
+dist-demo/
+coverage/
+playwright-report/
+test-results/
+.vite/
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Local files
+.DS_Store
+*.log
+__pycache__/
+*.py[cod]
