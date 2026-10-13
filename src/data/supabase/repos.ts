@@ -1,0 +1,1 @@
+export { supabaseRepos } from './index'
