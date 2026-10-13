@@ -1,0 +1,102 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* ---- Design tokens. Components use the semantic names below, never raw hex. ---- */
+:root {
+  color-scheme: dark;
+  --canvas: #0e1116;   /* app background */
+  --surface: #151a21;  /* panels */
+  --raised: #1c222b;   /* inputs, hover, tiles */
+  --line: #2a313c;
+  --fg: #e6eaf0;
+  --muted: #8b95a5;
+  --accent: #3fb27f;
+  --accent-hover: #35a072;
+  --accent-soft: #19382d;
+  --accent-fg: #06130d;
+  --danger: #f85149;
+  --warn: #d9a441;
+  /* Focus-quality states (also always paired with an icon + label) */
+  --st-focus: #3fb27f;
+  --st-phone: #e3b341;
+  --st-rest: #f06ea9;
+  --st-lapse: #f85149;
+  --st-idle: #6e7681;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #ffffff;
+  --surface: #f6f8fa;
+  --raised: #ebeef2;
+  --line: #d0d7de;
+  --fg: #1f2328;
+  --muted: #59636e;
+  --accent: #1a7f4b;
+  --accent-hover: #166d40;
+  --accent-soft: #ddf4e8;
+  --accent-fg: #ffffff;
+  --danger: #cf222e;
+  --warn: #9a6700;
+  --st-focus: #1a7f4b;
+  --st-phone: #b08800;
+  --st-rest: #c2386f;
+  --st-lapse: #cf222e;
+  --st-idle: #6e7781;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+  --color-danger: var(--danger);
+  --color-warn: var(--warn);
+  --color-st-focus: var(--st-focus);
+  --color-st-phone: var(--st-phone);
+  --color-st-rest: var(--st-rest);
+  --color-st-lapse: var(--st-lapse);
+  --color-st-idle: var(--st-idle);
+  --radius-ui: 6px;
+}
+
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+@utility pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+@utility tabular { font-variant-numeric: tabular-nums; }
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; }
+input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+::selection { background: var(--accent-soft); }
+
+/* Thin scrollbars on desktop only */
+@media (pointer: fine) {
+  * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+}
+/* Hide scrollbars for swipe containers */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
