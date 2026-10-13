@@ -1,0 +1,15 @@
+import { createMiddleware } from 'hono/factory'
+
+export const requestId = createMiddleware(async (c, next) => {
+  const incoming = c.req.header('X-Request-Id')
+  const id = incoming && incoming.length > 0 && incoming.length <= 128 ? incoming : crypto.randomUUID()
+  c.set('requestId', id)
+  c.header('X-Request-Id', id)
+  await next()
+})
+
+declare module 'hono' {
+  interface ContextVariableMap {
+    requestId: string
+  }
+}
