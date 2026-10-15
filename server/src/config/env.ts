@@ -35,6 +35,39 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
     const msg = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
     throw new Error(`Invalid environment: ${msg}`)
   }
+
+  if (parsed.data.NODE_ENV === 'production') {
+    const invalid: string[] = []
+    const isPlaceholder = (value: string | undefined) =>
+      !value?.trim() || /your[_ -]?value|your[_ -]|placeholder|change[_ -]?me|example/i.test(value)
+    const isLocalHost = (value: string | undefined) => {
+      if (!value) return false
+      try {
+        const hostname = new URL(value).hostname.toLowerCase()
+        return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]'
+      } catch {
+        return false
+      }
+    }
+
+    if (isPlaceholder(source.DATABASE_URL) || isLocalHost(source.DATABASE_URL)) invalid.push('DATABASE_URL')
+    if (isPlaceholder(source.VALKEY_URL) || isLocalHost(source.VALKEY_URL)) invalid.push('VALKEY_URL')
+    if (
+      isPlaceholder(source.CORS_ORIGINS) ||
+      source.CORS_ORIGINS?.split(',').some((origin) => /localhost|127\.0\.0\.1|\[::1\]/i.test(origin))
+    ) {
+      invalid.push('CORS_ORIGINS')
+    }
+    if (isPlaceholder(source.SUPABASE_URL) || isLocalHost(source.SUPABASE_URL)) invalid.push('SUPABASE_URL')
+    if (isPlaceholder(source.SUPABASE_ANON_KEY)) invalid.push('SUPABASE_ANON_KEY')
+    if (parsed.data.COOKIE_SECURE !== true) invalid.push('COOKIE_SECURE')
+    if (!parsed.data.TRUST_PROXY) invalid.push('TRUST_PROXY')
+
+    if (invalid.length > 0) {
+      throw new Error(`Invalid production environment: ${invalid.join(', ')}`)
+    }
+  }
+
   cached = parsed.data
   return parsed.data
 }
