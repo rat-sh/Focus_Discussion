@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: focus-lock
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /readyz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "true"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: PORT
+        value: "8787"
+      - key: VALKEY_URL
+        fromService:
+          type: keyvalue
+          name: focus-lock-valkey
+          property: connectionString
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_ADMIN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: VITE_USE_MOCK
+        sync: false
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+
+  - type: keyvalue
+    name: focus-lock-valkey
+    plan: starter
+    maxmemoryPolicy: noeviction
