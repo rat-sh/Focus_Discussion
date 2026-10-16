@@ -1,4 +1,4 @@
-# Focus Lock
+# Focus Discussion
 
 > Study time that counts only when you were actually studying.
 
