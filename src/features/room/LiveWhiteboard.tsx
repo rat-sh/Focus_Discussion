@@ -212,7 +212,7 @@ export function LiveWhiteboard({
           <Button size="sm" variant="secondary" icon={Trash2} onClick={() => void clear()} disabled={!connected || busy || strokes.length === 0}>Clear</Button>
         </div>
       </div>
-      {!connected && <p role="status" className="rounded-ui border border-line bg-raised px-3 py-2 text-xs text-muted">The shared board is read-only while the room is disconnected. Reconnect to draw or update it.</p>}
+      {!connected && <p role="status" className="rounded-ui border border-line bg-raised px-3 py-2 text-xs text-muted">Reconnecting to server… The shared board is read-only until the room connection is restored.</p>}
       {error && (
         <div role="alert" className="flex flex-wrap items-center gap-2 rounded-ui border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
           <p className="min-w-0 flex-1">{error}</p>

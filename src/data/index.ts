@@ -1,8 +1,14 @@
 import { USE_MOCK } from '@/config/env'
 import type { Repos } from './repositories'
 
-// Static conditional dynamic import: mock data is omitted from the production
-// bundle when VITE_USE_MOCK=false. Never silently fall back to mock.
-export const repos: Repos = USE_MOCK
-  ? (await import('./mock')).mockRepos
-  : (await import('./supabase/repos')).supabaseRepos
+let repos: Repos
+
+if (import.meta.env.PROD) {
+  repos = (await import('./supabase/repos')).supabaseRepos
+} else if (USE_MOCK) {
+  repos = (await import('./mock')).mockRepos
+} else {
+  repos = (await import('./supabase/repos')).supabaseRepos
+}
+
+export { repos }

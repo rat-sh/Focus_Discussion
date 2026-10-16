@@ -112,6 +112,15 @@ export function LiveRoomPage() {
           {connection.connectionFailed && <Button size="sm" variant="secondary" icon={RefreshCw} onClick={() => connection.setConnectionAttempt((attempt) => attempt + 1)}>Retry connection</Button>}
         </div>
       )}
+      {(connection.reconnecting || connection.connectionFailed) && (
+        <div role="status" className="border-b border-line bg-raised px-4 py-2 text-sm text-muted">
+          {connection.reconnecting
+            ? 'Reconnecting to the room… The shared board is read-only until the connection is restored.'
+            : connection.automaticRetriesExhausted
+              ? 'Automatic retries stopped after several attempts. Retry manually when the server or network is available.'
+              : `Still trying to connect to the room (attempt ${connection.connectionAttempt + 1}). Another retry is scheduled automatically.`}
+        </div>
+      )}
       {connection.audioBlocked && <button type="button" className="border-b border-line bg-raised px-4 py-2 text-sm text-accent" onClick={() => { void connection.roomRef.current?.startAudio().then(() => connection.setAudioBlocked(false)).catch((cause: unknown) => connection.setError(cause instanceof Error ? cause.message : 'Could not enable audio')) }}>Click to enable room audio</button>}
 
       <LiveAudioTracks participants={connection.visibleParticipants} userId={profile?.id ?? ''} />

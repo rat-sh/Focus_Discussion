@@ -14,17 +14,19 @@ interface Options {
   runSlash: (text: string) => boolean
 }
 
+const MAX_AUTOMATIC_RETRIES = 5
+
 function normalizeRoomConnectionError(cause: unknown) {
   const message = cause instanceof Error ? cause.message : String(cause ?? 'Could not connect to the video room')
   const lower = message.toLowerCase()
 
   if (lower.includes('invalid token') || lower.includes('token expired') || lower.includes('token is invalid') || lower.includes('not authorized') || lower.includes('room join')) {
-    return 'Your video session expired or was rejected. Refreshing the room connection…'
+    return 'LiveKit rejected the room token or room access. Check the server credentials and room membership.'
   }
   if (lower.includes('fetch') || lower.includes('network') || lower.includes('failed to fetch')) {
-    return 'Could not reach the video service. Check your connection and retry.'
+    return 'Could not reach the configured LiveKit server. Check LIVEKIT_URL and your network connection.'
   }
-  return 'The room connection is unstable. Refreshing the live session…'
+  return `LiveKit connection failed: ${message}`
 }
 
 export function useLiveRoomConnection({ code, initialMic, initialCam, userId, runSlash }: Options) {
@@ -42,6 +44,7 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
   const [cam, setCam] = useState(initialCam ?? false)
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(true)
+  const [reconnecting, setReconnecting] = useState(false)
   const [connectionFailed, setConnectionFailed] = useState(false)
   const [connectionAttempt, setConnectionAttempt] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -90,6 +93,7 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     let room: Room | null = null
     const connect = async () => {
       setConnecting(true)
+      setReconnecting(false)
       setConnectionFailed(false)
       setError(null)
       try {
@@ -134,7 +138,10 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
           .on(RoomEvent.ConnectionStateChanged, () => {
             const nextConnected = room?.state === 'connected'
             setConnected(nextConnected)
-            if (nextConnected) setError(null)
+            if (nextConnected) {
+              setReconnecting(false)
+              setError(null)
+            }
           })
           .on(RoomEvent.TrackPublished, refreshParticipants)
           .on(RoomEvent.TrackUnpublished, refreshParticipants)
@@ -170,17 +177,31 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
           })
           .on(RoomEvent.Reconnected, () => {
             setConnected(true)
+            setReconnecting(false)
             setError(null)
             refreshParticipants()
             requestRaisedHands()
           })
-          .on(RoomEvent.Disconnected, () => setConnected(false))
+          .on(RoomEvent.Reconnecting, () => {
+            setConnected(false)
+            setReconnecting(true)
+            setError('Connection to the video room was interrupted. Reconnecting…')
+          })
+          .on(RoomEvent.Disconnected, () => {
+            setConnected(false)
+            if (!cancelled) {
+              setReconnecting(false)
+              setConnectionFailed(true)
+              setError('LiveKit disconnected. Retrying the room connection…')
+            }
+          })
         await room.connect(credentials.url, credentials.token)
         if (cancelled) {
           room.disconnect()
           return
         }
         setConnected(true)
+        setReconnecting(false)
         setConnectionFailed(false)
         refreshParticipants()
         requestRaisedHands()
@@ -194,6 +215,8 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
         }
       } catch (cause) {
         if (!cancelled) {
+          console.error('LiveKit room connection failed', cause)
+          setReconnecting(false)
           const friendlyMessage = normalizeRoomConnectionError(cause)
           setError(friendlyMessage)
           setConnectionFailed(true)
@@ -211,8 +234,8 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
   }, [code, connectionAttempt, initialCam, initialMic, mergeMessages, userId])
 
   useEffect(() => {
-    if (!connectionFailed) return
-    const retryDelayMs = Math.min(15000, 1200 + connectionAttempt * 2000)
+    if (!connectionFailed || connectionAttempt >= MAX_AUTOMATIC_RETRIES) return
+    const retryDelayMs = Math.min(30000, 1000 * 2 ** Math.min(connectionAttempt, 5))
     const timer = window.setTimeout(() => {
       setConnectionAttempt((attempt) => attempt + 1)
       setConnectionFailed(false)
@@ -305,7 +328,10 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     cam,
     connected,
     connecting,
+    reconnecting,
     connectionFailed,
+    connectionAttempt,
+    automaticRetriesExhausted: connectionAttempt >= MAX_AUTOMATIC_RETRIES,
     setConnectionAttempt,
     error,
     setError,
