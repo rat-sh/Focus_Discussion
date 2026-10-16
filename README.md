@@ -2,7 +2,7 @@
 
 Study rooms for friend groups and anyone who wants to teach. Live room, session folders, friends, study library,
 and **Focus Lock** (quality-over-quantity study timer with on-device face tracking).
-This is the clean, mobile-first frontend. All data is mock for now and is isolated so it can be removed in one step.
+This is the clean, mobile-first frontend. Local development defaults to isolated mock data; production uses the live Supabase repositories.
 
 ## Run
 ```

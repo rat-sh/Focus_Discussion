@@ -20,6 +20,7 @@ import { materialRoutes } from './features/materials/routes'
 import { scheduleRoutes } from './features/schedule/routes'
 import { profileRoutes } from './features/profiles/routes'
 import { youtubeRoutes } from './features/youtube/routes'
+import { env } from './config/env'
 
 export function createApp(): Hono {
   const app = new Hono()
@@ -36,6 +37,13 @@ export function createApp(): Hono {
   app.route('/', healthRoutes)
 
   const v1 = new Hono()
+  v1.get('/client-config', (c) => {
+    const config = env()
+    if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {
+      return c.json({ error: { code: 'CONFIGURATION_ERROR', message: 'Supabase client configuration is missing' } }, 503)
+    }
+    return c.json({ supabaseUrl: config.SUPABASE_URL, supabaseAnonKey: config.SUPABASE_ANON_KEY })
+  })
   v1.route('/auth', authRoutes)
   v1.route('/rooms', roomRoutes)
   v1.route('/friends', friendRoutes)
