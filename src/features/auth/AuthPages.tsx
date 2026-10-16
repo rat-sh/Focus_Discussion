@@ -3,6 +3,7 @@ import { Check, Circle, CircleAlert, MailCheck, ShieldCheck } from 'lucide-react
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { BRAND } from '@/config/brand'
 import { useAuth } from '@/shared/context/auth'
+import { safeInternalPath } from '@/shared/lib/internalPath'
 import { Button } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
 import { Panel } from '@/shared/ui/Panel'
@@ -44,7 +45,7 @@ export function SignInPage() {
   const { signedIn, signIn } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
-  const from = (loc.state as { from?: string } | null)?.from ?? '/'
+  const from = safeInternalPath((loc.state as { from?: string } | null)?.from)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -71,12 +72,12 @@ export function SignInPage() {
       <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
         <Field label="Email address">{(id) => <Input id={id} type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />}</Field>
         <Field label="Password">{(id) => <Input id={id} type="password" autoComplete="current-password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} required />}</Field>
-        <div className="-mt-2 text-right text-sm"><Link className="text-accent underline-offset-4 hover:underline" to="/forgot-password">Forgot password?</Link></div>
+        <div className="-mt-2 text-right text-sm"><Link className="text-accent underline-offset-4 hover:underline" to="/forgot-password" state={{ from }}>Forgot password?</Link></div>
         {error && <AuthMessage>{error}</AuthMessage>}
         <Button variant="primary" size="lg" type="submit" disabled={busy || !email || !password}>
           {busy ? 'Signing in…' : 'Sign in'}
         </Button>
-        <p className="text-center text-sm text-muted">New to Focus Lock? <Link className="font-medium text-accent underline-offset-4 hover:underline" to="/signup">Create an account</Link></p>
+        <p className="text-center text-sm text-muted">New to Focus Lock? <Link className="font-medium text-accent underline-offset-4 hover:underline" to="/signup" state={{ from }}>Create an account</Link></p>
       </form>
     </AuthLayout>
   )
@@ -85,6 +86,8 @@ export function SignInPage() {
 export function SignUpPage() {
   const { signedIn, signUp } = useAuth()
   const nav = useNavigate()
+  const loc = useLocation()
+  const from = safeInternalPath((loc.state as { from?: string } | null)?.from)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -92,7 +95,7 @@ export function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  if (signedIn) return <Navigate to="/" replace />
+  if (signedIn) return <Navigate to={from} replace />
 
   const handleOk = /^[a-z0-9._]{3,24}$/.test(handle.trim().toLowerCase())
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
@@ -105,9 +108,9 @@ export function SignUpPage() {
     setBusy(true)
     setError(null)
     try {
-      const result = await signUp({ email: email.trim(), password, name: name.trim(), handle: handle.trim().toLowerCase() })
+      const result = await signUp({ email: email.trim(), password, name: name.trim(), handle: handle.trim().toLowerCase() }, from)
       if (result.confirmationRequired) setConfirmationEmail(email.trim())
-      else nav('/', { replace: true })
+      else nav(from, { replace: true })
     } catch (cause) {
       setError(messageOf(cause))
     } finally {
@@ -127,7 +130,7 @@ export function SignUpPage() {
           <li className="flex gap-2"><span className="font-semibold text-fg">2.</span> Select the confirmation link.</li>
           <li className="flex gap-2"><span className="font-semibold text-fg">3.</span> Return here and sign in.</li>
         </ol>
-        <Button variant="primary" size="lg" onClick={() => nav('/signin', { replace: true })}>Go to sign in</Button>
+        <Button variant="primary" size="lg" onClick={() => nav('/signin', { replace: true, state: { from } })}>Go to sign in</Button>
         <p className="text-center text-xs text-muted">No email yet? Check your spam folder. The link may take a minute to arrive.</p>
       </AuthLayout>
     )
@@ -155,7 +158,7 @@ export function SignUpPage() {
         <Button variant="primary" size="lg" type="submit" disabled={busy || !valid}>
           {busy ? 'Creating your account…' : 'Create account'}
         </Button>
-        <p className="text-center text-sm text-muted">Already have an account? <Link className="font-medium text-accent underline-offset-4 hover:underline" to="/signin">Sign in</Link></p>
+        <p className="text-center text-sm text-muted">Already have an account? <Link className="font-medium text-accent underline-offset-4 hover:underline" to="/signin" state={{ from }}>Sign in</Link></p>
       </form>
     </AuthLayout>
   )
@@ -168,18 +171,20 @@ function Requirement({ met, children }: { met: boolean; children: ReactNode }) {
 
 export function ForgotPasswordPage() {
   const { signedIn, requestPasswordReset } = useAuth()
+  const loc = useLocation()
+  const from = safeInternalPath((loc.state as { from?: string } | null)?.from)
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
-  if (signedIn) return <Navigate to="/" replace />
+  if (signedIn) return <Navigate to={from} replace />
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setBusy(true)
     setError(null)
     try {
-      await requestPasswordReset(email.trim())
+      await requestPasswordReset(email.trim(), from)
       setSent(true)
     } catch (cause) {
       setError(messageOf(cause))
@@ -197,7 +202,7 @@ export function ForgotPasswordPage() {
             <p className="mt-1 text-muted">Check your inbox and spam folder. For your privacy, we can’t confirm whether an email is registered.</p>
           </AuthMessage>
           <p className="text-sm text-muted">Reset link sent to <strong className="text-fg">{email.trim()}</strong></p>
-          <Link className="text-center text-sm font-medium text-accent underline-offset-4 hover:underline" to="/signin">Back to sign in</Link>
+          <Link className="text-center text-sm font-medium text-accent underline-offset-4 hover:underline" to="/signin" state={{ from }}>Back to sign in</Link>
         </>
       ) : (
         <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
@@ -210,7 +215,7 @@ export function ForgotPasswordPage() {
           <Button variant="primary" size="lg" type="submit" disabled={busy || !email.trim()}>
             {busy ? 'Sending reset link…' : 'Send reset link'}
           </Button>
-          <p className="text-center text-sm text-muted"><Link className="font-medium text-accent underline-offset-4 hover:underline" to="/signin">Back to sign in</Link></p>
+          <p className="text-center text-sm text-muted"><Link className="font-medium text-accent underline-offset-4 hover:underline" to="/signin" state={{ from }}>Back to sign in</Link></p>
         </form>
       )}
     </AuthLayout>
@@ -220,6 +225,8 @@ export function ForgotPasswordPage() {
 export function ResetPasswordPage() {
   const { ready, signedIn, updatePassword } = useAuth()
   const nav = useNavigate()
+  const loc = useLocation()
+  const from = safeInternalPath(new URLSearchParams(loc.search).get('next'))
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -257,7 +264,7 @@ export function ResetPasswordPage() {
     return (
       <AuthLayout title="Password updated" subtitle="Your account is ready to use with your new password.">
         <AuthMessage success><p className="font-semibold">Your password has been changed.</p></AuthMessage>
-        <Button variant="primary" size="lg" onClick={() => nav('/', { replace: true })}>Continue to Focus Lock</Button>
+        <Button variant="primary" size="lg" onClick={() => nav(from, { replace: true })}>Continue to Focus Lock</Button>
       </AuthLayout>
     )
   }

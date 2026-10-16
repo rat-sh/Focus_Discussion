@@ -6,6 +6,7 @@ import { USE_MOCK } from '@/config/env'
 import { repos } from '@/data'
 import { useResource } from '@/data/hooks'
 import { useProfile } from '@/shared/context/profile'
+import { useAuth } from '@/shared/context/auth'
 import { Button, ButtonLink } from '@/shared/ui/Button'
 import { Field, Input } from '@/shared/ui/Field'
 import { Skeleton } from '@/shared/ui/Feedback'
@@ -26,6 +27,7 @@ export function JoinPage() {
   const { code = '' } = useParams()
   const navigate = useNavigate()
   const { profile } = useProfile()
+  const { signedIn } = useAuth()
   const preview = useResource(() => repos.rooms.preview(code), code)
   const [nameOverride, setNameOverride] = useState<string | null>(null)
   const name = nameOverride ?? profile?.name ?? ''
@@ -58,14 +60,22 @@ export function JoinPage() {
       }
     }
     if (!USE_MOCK) {
-      if (!profile) { navigate('/signin', { state: { from: `/j/${code}` } }); return }
+      if (!signedIn) { navigate('/signin', { state: { from: `/j/${p.code}` } }); return }
       setBusy(true)
       try {
         await repos.rooms.join(p.code)
         window.dispatchEvent(new CustomEvent('studyroom:rooms-changed'))
       } catch (e) {
         setBusy(false)
-        setJoinError(e instanceof Error ? e.message : 'Could not join')
+        const message = e instanceof Error ? e.message : 'Could not join'
+        const lower = message.toLowerCase()
+        setJoinError(lower.includes('full')
+          ? 'This room is full. Ask the host to make space and try again.'
+          : lower.includes('expired') || lower.includes('closed')
+            ? 'This room invite has expired. Ask the host for a new code.'
+            : lower.includes('not found')
+              ? 'We could not find this room. Check the code and try again.'
+              : message)
         return
       }
       setBusy(false)
@@ -77,7 +87,14 @@ export function JoinPage() {
     <div className="pt-safe pb-safe flex min-h-dvh flex-col items-center justify-center bg-canvas px-4 py-8">
       <Link to="/" aria-label={`${BRAND.name} home`} className="mb-6 flex h-10 w-10 items-center justify-center rounded-ui bg-accent font-mono font-bold text-accent-fg">{BRAND.short}</Link>
       <Panel className="w-full max-w-md p-5">
-        {!p ? <div className="flex flex-col gap-3"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-11" /></div> : ok ? (
+        {!p && preview.loading ? <div className="flex flex-col gap-3"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-11" /></div> : !p && preview.error ? (
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <h1 className="text-lg font-semibold">Could not load this room</h1>
+            <p role="alert" className="text-sm text-muted">Check your connection and try again. {preview.error.message}</p>
+            <Button variant="primary" onClick={() => void preview.reload()}>Try again</Button>
+            <ButtonLink to="/join" variant="secondary">Enter another code</ButtonLink>
+          </div>
+        ) : !p ? <div className="flex flex-col gap-3"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-11" /></div> : ok ? (
           <div className="flex flex-col gap-5">
             <div>
               <p className="text-xs text-muted">You are invited to</p>

@@ -101,14 +101,14 @@ const M = (id: string, kind: Material['kind'], title: string, url: string, scope
   ({ id, kind, title, url, host: hostOf(url), scope, scopeLabel, tags, addedAt: daysAgo(d), sizeKb })
 export const MATERIALS: Material[] = [
   M('m_1', 'video', 'SQL Joins Explained (visual)', 'https://www.youtube.com/watch?v=9yeOJ0ZMUYw', 'personal', 'My library', ['SQL'], 1),
-  M('m_2', 'pdf', 'Database Normalization Notes.pdf', 'https://files.studyroom.app/dbms-normalization.pdf', 'personal', 'My library', ['DBMS'], 2, 1240),
+  M('m_2', 'pdf', 'Database Normalization Notes.pdf', 'https://files.example.invalid/dbms-normalization.pdf', 'personal', 'My library', ['DBMS'], 2, 1240),
   M('m_3', 'practice', 'LeetCode 146 · LRU Cache', 'https://leetcode.com/problems/lru-cache/', 'room', 'LRU Cache · Interview Prep', ['DSA'], 0),
   M('m_4', 'practice', 'SQLZoo interactive tutorial', 'https://sqlzoo.net/', 'personal', 'My library', ['SQL'], 4),
   M('m_5', 'article', 'System Design Primer', 'https://github.com/donnemartin/system-design-primer', 'room', 'System Design Mock', ['System Design'], 6),
   M('m_6', 'ai', 'ChatGPT', 'https://chatgpt.com/', 'personal', 'My library', ['AI'], 20),
   M('m_7', 'ai', 'Gemini', 'https://gemini.google.com/', 'personal', 'My library', ['AI'], 20),
   M('m_8', 'ai', 'Claude', 'https://claude.ai/', 'personal', 'My library', ['AI'], 20),
-  M('m_9', 'notes', 'Linked list cheat sheet', 'https://files.studyroom.app/linked-list.pdf', 'room', 'DBMS Revision', ['DSA'], 8, 380),
+  M('m_9', 'notes', 'Linked list cheat sheet', 'https://files.example.invalid/linked-list.pdf', 'room', 'DBMS Revision', ['DSA'], 8, 380),
 ]
 export const SCHEDULE: ScheduledSession[] = [
   { id: 'sc_1', title: 'System Design Mock', topic: 'System Design', startsAt: inHours(0.8), durationMin: 90, roomCode: 'SYS-210', going: 6, recurring: 'Weekly' },

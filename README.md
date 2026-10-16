@@ -17,6 +17,9 @@ Live backend is **Supabase**. See `docs/BACKEND.md`: set `VITE_USE_MOCK=false` p
 Demo controls (`/focus/session?demo=1`) exist only in `bun run dev`, or in a build made with `VITE_ENABLE_DEMO=true`. They are absent from production builds.
 Demo room codes: `DSA-482` (open), `FULL-001` (full), `OLD-404` (expired).
 
+## Supabase Auth URL configuration
+In Supabase Dashboard → Authentication → URL Configuration, set **Site URL** to `https://focus-discussion.onrender.com` and add `https://focus-discussion.onrender.com/**` under **Redirect URLs**. The app uses its current origin for signup confirmation and password-reset redirects.
+
 ## Structure
 ```
 src/

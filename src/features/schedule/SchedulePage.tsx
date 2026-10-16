@@ -3,7 +3,7 @@ import { CalendarPlus, Copy, Pencil, Repeat, Trash2 } from 'lucide-react'
 import { repos } from '@/data'
 import { useResource } from '@/data/hooks'
 import type { ScheduledSession } from '@/domain/types'
-import { BRAND } from '@/config/brand'
+import { roomInviteUrl } from '@/shared/lib/roomLinks'
 import { Button, ButtonLink } from '@/shared/ui/Button'
 import { Dialog } from '@/shared/ui/Dialog'
 import { Async, Badge, EmptyState } from '@/shared/ui/Feedback'
@@ -74,7 +74,7 @@ export function SchedulePage() {
     }
   }
   const copyReminder = async (t: string, at: string, code: string) => {
-    const text = `${t} · ${formatDay(at)} ${formatTime(at)}\nJoin: https://${BRAND.domain}/j/${code}`
+    const text = `${t} · ${formatDay(at)} ${formatTime(at)}\nJoin: ${roomInviteUrl(code)}`
     try { await navigator.clipboard.writeText(text); toast('Reminder copied for WhatsApp') } catch { toast('Copy is blocked by the browser', 'error') }
   }
   return (

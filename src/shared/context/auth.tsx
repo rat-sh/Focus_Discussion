@@ -1,14 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { USE_MOCK } from '@/config/env'
 import { ApiError } from '@/shared/lib/apiError'
+import { safeInternalPath } from '@/shared/lib/internalPath'
 
 interface AuthValue {
   ready: boolean
   signedIn: boolean
   initializationError: string | null
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (input: { email: string; password: string; name: string; handle: string }) => Promise<{ confirmationRequired: boolean }>
-  requestPasswordReset: (email: string) => Promise<void>
+  signUp: (input: { email: string; password: string; name: string; handle: string }, redirectPath?: string) => Promise<{ confirmationRequired: boolean }>
+  requestPasswordReset: (email: string, redirectPath?: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>
   signOut: () => Promise<void>
 }
@@ -57,21 +58,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw new ApiError('UNAUTHENTICATED', error.message, 401)
   }, [])
 
-  const signUp = useCallback(async (input: { email: string; password: string; name: string; handle: string }) => {
+  const signUp = useCallback(async (input: { email: string; password: string; name: string; handle: string }, redirectPath?: string) => {
     const { getSupabase } = await import('@/data/supabase/client')
     const { data, error } = await getSupabase().auth.signUp({
       email: input.email,
       password: input.password,
-      options: { data: { name: input.name, handle: input.handle.toLowerCase() } },
+      options: {
+        data: { name: input.name, handle: input.handle.toLowerCase() },
+        emailRedirectTo: new URL(safeInternalPath(redirectPath), window.location.origin).toString(),
+      },
     })
     if (error) throw new ApiError('VALIDATION_FAILED', error.message, 400)
     return { confirmationRequired: !data.session }
   }, [])
 
-  const requestPasswordReset = useCallback(async (email: string) => {
+  const requestPasswordReset = useCallback(async (email: string, redirectPath?: string) => {
     const { getSupabase } = await import('@/data/supabase/client')
+    const redirect = new URL('/reset-password', window.location.origin)
+    const next = safeInternalPath(redirectPath)
+    if (next !== '/') redirect.searchParams.set('next', next)
     const { error } = await getSupabase().auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: redirect.toString(),
     })
     if (error) throw new ApiError('INTERNAL', error.message, 400)
   }, [])
