@@ -32,6 +32,7 @@ function normalizeRoomConnectionError(cause: unknown) {
 export function useLiveRoomConnection({ code, initialMic, initialCam, userId, runSlash }: Options) {
   const roomRef = useRef<Room | null>(null)
   const handAtRef = useRef<string | null>(null)
+  const screenShareToggleRef = useRef(false)
   const [liveRoom, setLiveRoom] = useState<Room | null>(null)
   const [roomId, setRoomId] = useState<string | null>(null)
   const [roomName, setRoomName] = useState(code)
@@ -49,6 +50,8 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
   const [connectionAttempt, setConnectionAttempt] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [audioBlocked, setAudioBlocked] = useState(false)
+  const [screenSharing, setScreenSharing] = useState(false)
+  const [screenSharePending, setScreenSharePending] = useState(false)
   const visibleParticipants = useMemo(
     () => {
       const queue = Object.entries(raisedHands)
@@ -114,11 +117,12 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
         const refreshParticipants = () => {
           if (!room) return
           const current = [
-            participantTile(room.localParticipant, Track.Source.Camera, Track.Source.Microphone),
+            participantTile(room.localParticipant, Track.Source.Camera, Track.Source.Microphone, Track.Source.ScreenShare),
             ...[...room.remoteParticipants.values()].map((participant) =>
-              participantTile(participant, Track.Source.Camera, Track.Source.Microphone)),
+              participantTile(participant, Track.Source.Camera, Track.Source.Microphone, Track.Source.ScreenShare)),
           ]
           setParticipants(current)
+          setScreenSharing(room.localParticipant.isScreenShareEnabled)
         }
         const requestRaisedHands = () => {
           if (!room || room.state !== 'connected') return
@@ -149,6 +153,8 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
           .on(RoomEvent.TrackUnsubscribed, refreshParticipants)
           .on(RoomEvent.TrackMuted, refreshParticipants)
           .on(RoomEvent.TrackUnmuted, refreshParticipants)
+          .on(RoomEvent.LocalTrackPublished, refreshParticipants)
+          .on(RoomEvent.LocalTrackUnpublished, refreshParticipants)
           .on(RoomEvent.ActiveSpeakersChanged, refreshParticipants)
           .on(RoomEvent.DataReceived, (payload, sender, _kind, topic) => {
             if (topic === LIVE_CHAT_TOPIC) {
@@ -314,6 +320,30 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     }
   }
 
+  const toggleScreenShare = async () => {
+    const room = roomRef.current
+    if (!room || room.state !== 'connected' || screenShareToggleRef.current) return
+    if (!screenSharing && !navigator.mediaDevices?.getDisplayMedia) {
+      setError('Screen sharing is not supported by this browser. Try a current version of Chrome, Edge, or Firefox.')
+      return
+    }
+    screenShareToggleRef.current = true
+    setScreenSharePending(true)
+    try {
+      await room.localParticipant.setScreenShareEnabled(!screenSharing)
+      setScreenSharing(room.localParticipant.isScreenShareEnabled)
+      setError(null)
+    } catch (cause) {
+      const message = cause instanceof DOMException && cause.name === 'NotAllowedError'
+        ? 'Screen sharing was cancelled or permission was denied. Choose a screen or window to share, then try again.'
+        : cause instanceof Error ? cause.message : 'Could not start screen sharing'
+      setError(message)
+    } finally {
+      screenShareToggleRef.current = false
+      setScreenSharePending(false)
+    }
+  }
+
   return {
     roomRef,
     liveRoom,
@@ -326,6 +356,8 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     hand,
     mic,
     cam,
+    screenSharing,
+    screenSharePending,
     connected,
     connecting,
     reconnecting,
@@ -341,5 +373,6 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     postChat,
     toggleMic,
     toggleCam,
+    toggleScreenShare,
   }
 }

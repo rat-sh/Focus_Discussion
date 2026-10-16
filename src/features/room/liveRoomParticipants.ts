@@ -9,6 +9,7 @@ export function participantTile(
   participant: LiveKitParticipant,
   cameraSource: Track.Source,
   microphoneSource: Track.Source,
+  screenShareSource: Track.Source,
 ): TileParticipant {
   return {
     id: participant.identity,
@@ -19,6 +20,7 @@ export function participantTile(
     speaking: participant.isSpeaking,
     handOrder: null,
     focus: null,
+    screenShareTrack: trackFor(participant, screenShareSource),
     videoTrack: trackFor(participant, cameraSource),
     audioTrack: trackFor(participant, microphoneSource),
   }
