@@ -10,14 +10,17 @@
 export const IS_DEV = import.meta.env.DEV
 
 /**
- * When true (default), UI uses in-memory mock repositories.
- * When false, UI talks to Supabase. Never falls back to mock data.
- * Read ONLY here — nowhere else should inspect VITE_USE_MOCK.
+ * Development defaults to mock repositories; production always uses Supabase.
  */
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
+export const USE_MOCK = !import.meta.env.PROD && import.meta.env.VITE_USE_MOCK !== 'false'
 
 /** Demo shortcuts exist only in mock mode. Live mode never shows them. */
 export const ENABLE_DEMO = USE_MOCK && (IS_DEV || import.meta.env.VITE_ENABLE_DEMO === 'true')
 
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? ''
-export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
+export let SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? ''
+export let SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
+
+export function configureSupabase(url: string, anonKey: string): void {
+  SUPABASE_URL = url
+  SUPABASE_ANON_KEY = anonKey
+}

@@ -36,4 +36,14 @@ describe('health', () => {
     expect(body.postgres).toBe(true)
     expect(body.valkey).toBe(true)
   })
+
+  test('GET /api/v1/client-config exposes only public Supabase settings', async () => {
+    const app = createApp()
+    const res = await app.request('/api/v1/client-config')
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({
+      supabaseUrl: 'http://supabase.test',
+      supabaseAnonKey: 'test-anon-key',
+    })
+  })
 })
