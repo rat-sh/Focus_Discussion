@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, ClipboardList, Copy, FileText, FolderOpen, Image as ImageIcon, Link2, MessageCircleQuestion, Plus, Trash2, type LucideIcon } from 'lucide-react'
-import { BRAND } from '@/config/brand'
+import { ArrowLeft, ChevronRight, ClipboardList, Copy, FileText, FolderOpen, Image as ImageIcon, KeyRound, Link2, MessageCircleQuestion, Plus, Trash2, type LucideIcon } from 'lucide-react'
 import { repos } from '@/data'
 import { useResource, type Resource } from '@/data/hooks'
 import type { ArtifactKind, Room } from '@/domain/types'
@@ -14,6 +13,7 @@ import { useToast } from '@/shared/ui/Toast'
 import { useIsDesktop } from '@/shared/hooks/useMediaQuery'
 import { cx } from '@/shared/lib/cx'
 import { formatDate, formatDay, formatTime, timeAgo } from '@/shared/lib/format'
+import { roomInviteUrl } from '@/shared/lib/roomLinks'
 import { CreateRoomDialog } from './CreateRoomDialog'
 
 const ARTIFACT_ICON: Record<ArtifactKind, LucideIcon> = { board: ImageIcon, recap: ClipboardList, doubts: MessageCircleQuestion, material: Link2, transcript: FileText }
@@ -39,7 +39,7 @@ export function RoomsPage() {
   return (
     <>
       <PageHeader title="My rooms" subtitle="Rooms you created or joined. Every session is saved in its own folder."
-        actions={<Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>Start a room</Button>} />
+        actions={<div className="flex flex-wrap gap-2"><ButtonLink to="/join" icon={KeyRound}>Join with code</ButtonLink><Button variant="primary" icon={Plus} onClick={() => setCreating(true)}>Start a room</Button></div>} />
       <Async res={rooms}>
         {(all) => {
           const selected = all.find((r) => r.id === roomId)
@@ -89,7 +89,7 @@ function RoomDetail({ room, sessionId, desktop, rooms }: { room: Room; sessionId
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
   const copy = async () => {
-    try { await navigator.clipboard.writeText(`https://${BRAND.domain}/j/${room.code}`); toast('Invite link copied') } catch { toast('Copy is blocked by the browser', 'error') }
+    try { await navigator.clipboard.writeText(roomInviteUrl(room.code)); toast('Invite link copied') } catch { toast('Copy is blocked by the browser', 'error') }
   }
   const remove = async () => {
     try {

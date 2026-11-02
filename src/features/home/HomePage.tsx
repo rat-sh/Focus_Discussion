@@ -50,9 +50,9 @@ export function HomePage() {
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_auto_1fr]">
             <Button variant="primary" size="lg" icon={Plus} onClick={() => setCreating(true)}>Start a room</Button>
             <Button size="lg" icon={Lock} onClick={() => navigate('/focus')}>Focus Lock</Button>
-            <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (code.trim()) navigate(`/j/${code.trim().toUpperCase()}`) }}>
+            <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (code.trim()) navigate('/join', { state: { code } }) }}>
               <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Room code or link" aria-label="Room code" className="uppercase placeholder:normal-case" />
-              <Button type="submit" size="lg" disabled={!code.trim()}>Join</Button>
+              <Button type="submit" size="lg" disabled={!code.trim()}>Join with code</Button>
             </form>
           </div>
         </div>

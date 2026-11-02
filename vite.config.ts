@@ -13,6 +13,8 @@ export default defineConfig({
     },
     proxy: {
       '/api': { target: 'http://localhost:8787', changeOrigin: true },
+      '/healthz': { target: 'http://localhost:8787', changeOrigin: true },
+      '/readyz': { target: 'http://localhost:8787', changeOrigin: true },
     },
   },
 })

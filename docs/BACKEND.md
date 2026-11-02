@@ -1,6 +1,6 @@
 # Live vs mock
 
-Switch is only `VITE_USE_MOCK` in `.env.local` (read in `src/config/env.ts`).
+In development, `VITE_USE_MOCK` in `.env.local` controls the data source (read in `src/config/env.ts`). Production always uses Supabase, regardless of `VITE_USE_MOCK`.
 
 | Flag | What you see |
 |------|----------------|
@@ -30,6 +30,10 @@ In Supabase **Authentication → URL Configuration**, add the app origins you ac
 Use the **anon** key only in the browser. Do not add a Supabase service-role key to either client environment. LiveKit video/audio needs a reachable LiveKit server. YouTube playback uses the embed and does not need an API key; search appears only when the server has `YOUTUBE_API_KEY` configured.
 
 The API validates bearer tokens through Supabase Auth; it does not store passwords, custom access tokens, or refresh-token rows in the application database.
+
+### Render deployment
+
+Set the server-side `SUPABASE_URL` and `SUPABASE_ANON_KEY` environment variables in Render. The production frontend requests these public client settings from `/api/v1/client-config` at startup, so they do not need to be supplied as Docker build arguments or `VITE_*` build variables. Production builds never use mock data, regardless of `VITE_USE_MOCK`.
 
 ## Live features
 

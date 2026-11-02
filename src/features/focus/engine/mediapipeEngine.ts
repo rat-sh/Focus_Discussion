@@ -8,7 +8,7 @@ import { classify, freshDwell } from './classify'
 import type { AttentionEngine, AttentionSample } from './types'
 import { signalsFromResults } from './visionSignals'
 
-const WASM_ROOT = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.0/wasm'
+const WASM_ROOT = new URL(`${import.meta.env.BASE_URL}mediapipe-wasm/`, location.href).href
 const SAMPLE_INTERVAL_MS = 1000
 
 export class MediaPipeAttentionEngine implements AttentionEngine {

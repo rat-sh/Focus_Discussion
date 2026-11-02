@@ -1,0 +1,16 @@
+node_modules
+.git
+dist
+dist-demo
+coverage
+playwright-report
+test-results
+design
+docs
+AUDIT.md
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log

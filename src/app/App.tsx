@@ -20,6 +20,7 @@ import { StatsPage } from '@/features/stats/StatsPage'
 import { RecapPage } from '@/features/recap/RecapPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { JoinPage } from '@/features/join/JoinPage'
+import { JoinByCodePage } from '@/features/join/JoinByCodePage'
 import { MusicProvider } from '@/features/music/MusicProvider'
 import { AppShell } from './AppShell'
 
@@ -65,6 +66,7 @@ export function App() {
                         <Route path="focus/session" element={<FocusSessionPage />} />
                         <Route path="room/:code" element={<RoomPage />} />
                       </Route>
+                      <Route path="join" element={<JoinByCodePage />} />
                       <Route path="j/:code" element={<JoinPage />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>

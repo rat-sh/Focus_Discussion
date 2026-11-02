@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, Clock, Link2, Search, UserMinus, UserPlus, Users, X } from 'lucide-react'
-import { BRAND } from '@/config/brand'
 import { repos } from '@/data'
 import { useResource } from '@/data/hooks'
 import type { Friend, PersonSearchHit, RelationState } from '@/domain/types'
@@ -48,7 +47,7 @@ export function FriendsPage() {
     toast(accept ? 'Friend added' : 'Request declined')
   }
   const copyInvite = async () => {
-    try { await navigator.clipboard.writeText(`https://${BRAND.domain}/add/${profile?.handle ?? 'me'}`); toast('Your friend link is copied. Paste it in WhatsApp.') } catch { toast('Copy is blocked by the browser', 'error') }
+    try { await navigator.clipboard.writeText(new URL(`/add/${profile?.handle ?? 'me'}`, window.location.origin).toString()); toast('Your friend link is copied. Paste it in WhatsApp.') } catch { toast('Copy is blocked by the browser', 'error') }
   }
 
   return (

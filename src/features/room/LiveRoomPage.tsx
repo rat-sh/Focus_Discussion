@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Ellipsis, Hand, LayoutGrid, Lock, MessageSquare, Mic, MicOff, RefreshCw, UserPlus, Video, VideoOff } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Ellipsis, Hand, LayoutGrid, MessageSquare, Mic, MicOff, MonitorUp, RefreshCw, UserPlus, Video, VideoOff } from 'lucide-react'
 import { useProfile } from '@/shared/context/profile'
 import { useCommands, useRegisterCommands, type Command } from '@/shared/context/command'
 import { Button } from '@/shared/ui/Button'
@@ -48,12 +48,9 @@ export function LiveRoomPage() {
   const [layout, setLayout] = useState<Layout>('stage')
   const [stageTab, setStageTab] = useState<StageTab>('board')
   const [sideTab, setSideTab] = useState<SideTab>('chat')
+  const [panelOpen, setPanelOpen] = useState(true)
   const [sheet, setSheet] = useState<SideTab | 'more' | null>(null)
   const [invite, setInvite] = useState(false)
-  const stageTabs = connection.screenShare
-    ? [...STAGE_TABS, { id: 'screen' as const, label: 'Screen share' }]
-    : STAGE_TABS
-  const visibleStageTab = stageTab === 'screen' && !connection.screenShare ? 'board' : stageTab
   const showStudy = useCallback(() => {
     setLayout('stage')
     setStageTab('study')
@@ -79,9 +76,17 @@ export function LiveRoomPage() {
   useRegisterCommands('live-room', commands)
 
   const openPanel = (tab: SideTab) => {
-    if (desktop) setSideTab(tab)
+    if (desktop) {
+      setSideTab(tab)
+      setPanelOpen(true)
+    }
     else setSheet(tab)
   }
+
+  const stageTabs: TabItem<StageTab>[] = connection.screenShare
+    ? [...STAGE_TABS, { id: 'screen', label: 'Screen share' }]
+    : STAGE_TABS
+  const activeStageTab = stageTab === 'screen' && !connection.screenShare ? 'board' : stageTab
 
   const roomContent = layout === 'gallery'
     ? <GalleryView people={connection.visibleParticipants} meId={profile?.id ?? ''} />
@@ -89,17 +94,17 @@ export function LiveRoomPage() {
       ? <SpeakerView people={connection.visibleParticipants} meId={profile?.id ?? ''} />
       : (
         <div className="flex h-full min-h-0 flex-col">
-          <Tabs label="Shared content" value={visibleStageTab} onChange={setStageTab} items={stageTabs} className="shrink-0 bg-surface px-2" />
+          <Tabs label="Shared content" value={activeStageTab} onChange={setStageTab} items={stageTabs} className="shrink-0 bg-surface px-2" />
           <div className="min-h-0 flex-1 bg-canvas">
-            {visibleStageTab === 'board' && connection.roomId
+            {activeStageTab === 'board' && connection.roomId
               ? <Suspense fallback={<div className="grid h-full place-items-center text-sm text-muted">Loading shared board...</div>}>
                   <LiveWhiteboard roomId={connection.roomId} liveRoom={connection.liveRoom} connected={connection.connected} userId={profile?.id ?? ''} />
                 </Suspense>
-              : visibleStageTab === 'board'
+              : activeStageTab === 'board'
                 ? <div className="grid h-full place-items-center p-4 text-sm text-muted">Connecting to the shared board…</div>
                 : null}
             {connection.roomId && (
-              <div className={visibleStageTab === 'study' ? 'h-full min-h-0' : 'hidden'}>
+              <div className={activeStageTab === 'study' ? 'h-full min-h-0' : 'hidden'}>
                 <MaterialStage
                   roomId={connection.roomId}
                   liveRoom={connection.liveRoom}
@@ -108,7 +113,7 @@ export function LiveRoomPage() {
                 />
               </div>
             )}
-            {visibleStageTab === 'screen' && connection.screenShare && <ScreenShareStage screenShare={connection.screenShare} />}
+            {activeStageTab === 'screen' && connection.screenShare && <ScreenShareStage screenShare={connection.screenShare} />}
           </div>
         </div>
       )
@@ -130,6 +135,15 @@ export function LiveRoomPage() {
       <header className="pt-safe flex min-h-12 shrink-0 items-center gap-2 border-b border-line bg-surface px-3">
         <div className="min-w-0 flex-1"><h1 className="truncate text-sm font-semibold">{connection.roomName}</h1><p className="font-mono text-xs text-muted">{connection.connecting ? 'Connecting…' : `${code} · ${connection.visibleParticipants.length} in room`}</p></div>
         {desktop && <Tabs variant="segment" label="Layout" value={layout} onChange={setLayout} items={LAYOUTS} className="w-64" />}
+        {desktop && <Button
+          icon={panelOpen ? ChevronRight : ChevronLeft}
+          aria-label={panelOpen ? 'Hide room panel' : 'Show room panel'}
+          aria-expanded={panelOpen}
+          aria-controls="live-room-side-panel"
+          className="border-accent/50 font-semibold"
+          onClick={() => setPanelOpen((open) => !open)}
+        >{panelOpen ? 'Hide panel' : 'Show panel'}</Button>}
+        {connection.screenSharing && <span role="status" className="inline-flex items-center gap-1 rounded-ui bg-accent-soft px-2 py-1 text-xs text-accent"><MonitorUp size={14} aria-hidden />Sharing screen</span>}
         {desktop && <Button icon={UserPlus} variant="primary" onClick={() => setInvite(true)}>Invite</Button>}
         {!desktop && <Button iconOnly label="Change layout" icon={LayoutGrid} onClick={() => setLayout((current) => current === 'stage' ? 'gallery' : current === 'gallery' ? 'speaker' : 'stage')} />}
         <Button variant="danger" onClick={() => { connection.roomRef.current?.disconnect(); nav('/rooms') }}>Leave</Button>
@@ -138,6 +152,15 @@ export function LiveRoomPage() {
         <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-danger/30 bg-danger/10 px-4 py-2 text-sm text-danger">
           <p className="min-w-0 flex-1">{connection.error}</p>
           {connection.connectionFailed && <Button size="sm" variant="secondary" icon={RefreshCw} onClick={() => connection.setConnectionAttempt((attempt) => attempt + 1)}>Retry connection</Button>}
+        </div>
+      )}
+      {(connection.reconnecting || connection.connectionFailed) && (
+        <div role="status" className="border-b border-line bg-raised px-4 py-2 text-sm text-muted">
+          {connection.reconnecting
+            ? 'Reconnecting to the room… The shared board is read-only until the connection is restored.'
+            : connection.automaticRetriesExhausted
+              ? 'Automatic retries stopped after several attempts. Retry manually when the server or network is available.'
+              : `Still trying to connect to the room (attempt ${connection.connectionAttempt + 1}). Another retry is scheduled automatically.`}
         </div>
       )}
       {connection.audioBlocked && <button type="button" className="border-b border-line bg-raised px-4 py-2 text-sm text-accent" onClick={() => { void connection.roomRef.current?.startAudio().then(() => connection.setAudioBlocked(false)).catch((cause: unknown) => connection.setError(cause instanceof Error ? cause.message : 'Could not enable audio')) }}>Click to enable room audio</button>}
@@ -152,21 +175,21 @@ export function LiveRoomPage() {
           </div>
           {!desktop && layout === 'stage' && <div className="shrink-0 border-t border-line bg-surface p-2"><Filmstrip people={connection.visibleParticipants} meId={profile?.id ?? ''} cols="row" onMore={() => setLayout('gallery')} /></div>}
         </section>
-        {desktop && (
-          <aside className="flex w-80 shrink-0 flex-col border-l border-line bg-surface" aria-label="Room panel">
+        {desktop && panelOpen && (
+          <aside id="live-room-side-panel" className="flex w-80 shrink-0 flex-col border-l border-line bg-surface" aria-label="Room panel">
             {layout === 'stage' && <div className="shrink-0 border-b border-line p-2"><Filmstrip people={connection.visibleParticipants} meId={profile?.id ?? ''} cols="grid" onMore={() => setLayout('gallery')} /></div>}
             <Tabs label="Room panel" value={sideTab} onChange={setSideTab} items={SIDE_TABS} dense className="shrink-0 px-1" />
             <div className="flex min-h-0 flex-1 flex-col">{panelContent(sideTab)}</div>
           </aside>
         )}
       </div>
-      <footer className="pb-safe flex shrink-0 items-center justify-center gap-1 border-t border-line bg-surface px-2 pt-1.5">
+      <footer className="no-scrollbar pb-safe flex w-full shrink-0 justify-start gap-1 overflow-x-auto border-t border-line bg-surface px-2 pt-1.5 md:justify-center">
         <Ctrl icon={connection.mic ? Mic : MicOff} label={connection.mic ? 'Mute' : 'Unmute'} off={!connection.mic} disabled={!connection.connected} onClick={() => void connection.toggleMic()} />
         <Ctrl icon={connection.cam ? Video : VideoOff} label={connection.cam ? 'Stop video' : 'Video'} aria={connection.cam ? 'Stop video' : 'Start video'} off={!connection.cam} disabled={!connection.connected} onClick={() => void connection.toggleCam()} />
         <Ctrl icon={Hand} label="Hand" aria={connection.hand ? 'Lower hand' : 'Raise hand'} pressed={connection.hand} disabled={!connection.connected} onClick={connection.toggleHand} />
+        <Ctrl icon={MonitorUp} label={connection.screenSharePending ? 'Choose screen…' : connection.screenSharing ? 'Stop share' : 'Share screen'} aria={connection.screenSharing ? 'Stop screen sharing' : 'Share screen'} pressed={connection.screenSharing} off={connection.screenSharing} disabled={!connection.connected || connection.screenSharePending} onClick={() => void connection.toggleScreenShare()} />
         {!desktop && <Ctrl icon={MessageSquare} label="Chat" onClick={() => openPanel('chat')} />}
         {!desktop && <Ctrl icon={Ellipsis} label="More" onClick={() => setSheet('more')} />}
-        {desktop && <Ctrl icon={Lock} label="Focus" onClick={() => nav('/focus')} />}
       </footer>
 
       <InviteDialog open={invite} onClose={() => setInvite(false)} code={code} name={connection.roomName} />

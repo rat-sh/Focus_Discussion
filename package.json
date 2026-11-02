@@ -8,6 +8,7 @@
     "dev": "vite",
     "dev:api": "bun --env-file=server/.env --watch server/src/index.ts",
     "start:real": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-real.ps1",
+    "prebuild": "bun run scripts/copy-mediapipe-wasm.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

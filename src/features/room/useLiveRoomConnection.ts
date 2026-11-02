@@ -18,23 +18,25 @@ export interface LiveScreenShare {
   participant: LiveKitParticipant
   track: Track
 }
+const MAX_AUTOMATIC_RETRIES = 5
 
 function normalizeRoomConnectionError(cause: unknown) {
   const message = cause instanceof Error ? cause.message : String(cause ?? 'Could not connect to the video room')
   const lower = message.toLowerCase()
 
   if (lower.includes('invalid token') || lower.includes('token expired') || lower.includes('token is invalid') || lower.includes('not authorized') || lower.includes('room join')) {
-    return 'Your video session expired or was rejected. Refreshing the room connection…'
+    return 'LiveKit rejected the room token or room access. Check the server credentials and room membership.'
   }
   if (lower.includes('fetch') || lower.includes('network') || lower.includes('failed to fetch')) {
-    return 'Could not reach the video service. Check your connection and retry.'
+    return 'Could not reach the configured LiveKit server. Check LIVEKIT_URL and your network connection.'
   }
-  return 'The room connection is unstable. Refreshing the live session…'
+  return `LiveKit connection failed: ${message}`
 }
 
 export function useLiveRoomConnection({ code, initialMic, initialCam, userId, runSlash }: Options) {
   const roomRef = useRef<Room | null>(null)
   const handAtRef = useRef<string | null>(null)
+  const screenShareToggleRef = useRef(false)
   const [liveRoom, setLiveRoom] = useState<Room | null>(null)
   const [roomId, setRoomId] = useState<string | null>(null)
   const [roomName, setRoomName] = useState(code)
@@ -49,10 +51,12 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
   const [screenShare, setScreenShare] = useState<LiveScreenShare | null>(null)
   const [screenSharePending, setScreenSharePending] = useState(false)
   const [connecting, setConnecting] = useState(true)
+  const [reconnecting, setReconnecting] = useState(false)
   const [connectionFailed, setConnectionFailed] = useState(false)
   const [connectionAttempt, setConnectionAttempt] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [audioBlocked, setAudioBlocked] = useState(false)
+  const [screenSharing, setScreenSharing] = useState(false)
   const visibleParticipants = useMemo(
     () => {
       const queue = Object.entries(raisedHands)
@@ -109,9 +113,11 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     let room: Room | null = null
     const connect = async () => {
       setConnecting(true)
+      setReconnecting(false)
       setConnectionFailed(false)
       setError(null)
       setScreenShare(null)
+      setScreenSharing(false)
       try {
         const rooms = await repos.rooms.listMine()
         const membership = rooms.find((item) => item.code.toUpperCase() === code.toUpperCase())
@@ -130,11 +136,12 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
         const refreshParticipants = () => {
           if (!room) return
           const current = [
-            participantTile(room.localParticipant, Track.Source.Camera, Track.Source.Microphone),
+            participantTile(room.localParticipant, Track.Source.Camera, Track.Source.Microphone, Track.Source.ScreenShare),
             ...[...room.remoteParticipants.values()].map((participant) =>
-              participantTile(participant, Track.Source.Camera, Track.Source.Microphone)),
+              participantTile(participant, Track.Source.Camera, Track.Source.Microphone, Track.Source.ScreenShare)),
           ]
           setParticipants(current)
+          setScreenSharing(room.localParticipant.isScreenShareEnabled)
         }
         const refreshMedia = () => {
           if (!room) return
@@ -159,7 +166,10 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
           .on(RoomEvent.ConnectionStateChanged, () => {
             const nextConnected = room?.state === 'connected'
             setConnected(nextConnected)
-            if (nextConnected) setError(null)
+            if (nextConnected) {
+              setReconnecting(false)
+              setError(null)
+            }
           })
           .on(RoomEvent.TrackPublished, refreshMedia)
           .on(RoomEvent.TrackUnpublished, refreshMedia)
@@ -167,6 +177,8 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
           .on(RoomEvent.TrackUnsubscribed, refreshMedia)
           .on(RoomEvent.TrackMuted, refreshMedia)
           .on(RoomEvent.TrackUnmuted, refreshMedia)
+          .on(RoomEvent.LocalTrackPublished, refreshMedia)
+          .on(RoomEvent.LocalTrackUnpublished, refreshMedia)
           .on(RoomEvent.ActiveSpeakersChanged, refreshParticipants)
           .on(RoomEvent.DataReceived, (payload, sender, _kind, topic) => {
             if (topic === LIVE_CHAT_TOPIC) {
@@ -195,13 +207,25 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
           })
           .on(RoomEvent.Reconnected, () => {
             setConnected(true)
+            setReconnecting(false)
             setError(null)
             refreshMedia()
             requestRaisedHands()
           })
+          .on(RoomEvent.Reconnecting, () => {
+            setConnected(false)
+            setReconnecting(true)
+            setError('Connection to the video room was interrupted. Reconnecting…')
+          })
           .on(RoomEvent.Disconnected, () => {
             setConnected(false)
             setScreenShare(null)
+            setScreenSharing(false)
+            if (!cancelled) {
+              setReconnecting(false)
+              setConnectionFailed(true)
+              setError('LiveKit disconnected. Retrying the room connection…')
+            }
           })
         await room.connect(credentials.url, credentials.token)
         if (cancelled) {
@@ -209,6 +233,7 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
           return
         }
         setConnected(true)
+        setReconnecting(false)
         setConnectionFailed(false)
         refreshMedia()
         requestRaisedHands()
@@ -222,6 +247,8 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
         }
       } catch (cause) {
         if (!cancelled) {
+          console.error('LiveKit room connection failed', cause)
+          setReconnecting(false)
           const friendlyMessage = normalizeRoomConnectionError(cause)
           setError(friendlyMessage)
           setConnectionFailed(true)
@@ -239,8 +266,8 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
   }, [code, connectionAttempt, initialCam, initialMic, mergeMessages, refreshScreenShare, userId])
 
   useEffect(() => {
-    if (!connectionFailed) return
-    const retryDelayMs = Math.min(15000, 1200 + connectionAttempt * 2000)
+    if (!connectionFailed || connectionAttempt >= MAX_AUTOMATIC_RETRIES) return
+    const retryDelayMs = Math.min(30000, 1000 * 2 ** Math.min(connectionAttempt, 5))
     const timer = window.setTimeout(() => {
       setConnectionAttempt((attempt) => attempt + 1)
       setConnectionFailed(false)
@@ -321,15 +348,25 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
 
   const toggleScreenShare = async () => {
     const room = roomRef.current
-    if (!room) return
-    const currentlySharing = Boolean(room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track)
+    if (!room || room.state !== 'connected' || screenShareToggleRef.current) return
+    if (!screenSharing && !navigator.mediaDevices?.getDisplayMedia) {
+      setError('Screen sharing is not supported by this browser. Try a current version of Chrome, Edge, or Firefox.')
+      return
+    }
+    screenShareToggleRef.current = true
     setScreenSharePending(true)
     try {
-      await room.localParticipant.setScreenShareEnabled(!currentlySharing)
+      await room.localParticipant.setScreenShareEnabled(!screenSharing)
       refreshScreenShare(room)
+      setScreenSharing(room.localParticipant.isScreenShareEnabled)
+      setError(null)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not change screen sharing')
+      const message = cause instanceof DOMException && cause.name === 'NotAllowedError'
+        ? 'Screen sharing was cancelled or permission was denied. Choose a screen or window to share, then try again.'
+        : cause instanceof Error ? cause.message : 'Could not start screen sharing'
+      setError(message)
     } finally {
+      screenShareToggleRef.current = false
       setScreenSharePending(false)
     }
   }
@@ -348,10 +385,13 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     cam,
     connected,
     screenShare,
-    screenSharing: Boolean(screenShare && screenShare.participant.identity === userId),
+    screenSharing,
     screenSharePending,
     connecting,
+    reconnecting,
     connectionFailed,
+    connectionAttempt,
+    automaticRetriesExhausted: connectionAttempt >= MAX_AUTOMATIC_RETRIES,
     setConnectionAttempt,
     error,
     setError,

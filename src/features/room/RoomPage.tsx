@@ -1,6 +1,6 @@
 import { lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Ellipsis, Hand, LayoutGrid, Lock, Mic, MicOff, MessageSquare, Pause, Play, UserPlus, Video, VideoOff } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Ellipsis, Hand, LayoutGrid, Lock, Mic, MicOff, MessageSquare, Pause, Play, UserPlus, Video, VideoOff } from 'lucide-react'
 import { repos } from '@/data'
 import { useResource } from '@/data/hooks'
 import type { Participant } from '@/domain/types'
@@ -54,6 +54,7 @@ function MockRoomPage() {
   const [layout, setLayout] = useState<Layout>('stage')
   const [stageTab, setStageTab] = useState<StageTab>('board')
   const [sideTab, setSideTab] = useState<SideTab>('chat')
+  const [panelOpen, setPanelOpen] = useState(true)
   const [sheet, setSheet] = useState<SideTab | 'more' | null>(null)
   const [invite, setInvite] = useState(false)
   const timer = useRoomTimer()
@@ -115,6 +116,7 @@ function MockRoomPage() {
       <header className="pt-safe flex min-h-12 shrink-0 items-center gap-2 border-b border-line bg-surface px-3">
         <div className="min-w-0 flex-1"><h1 className="truncate text-sm font-semibold">{roomName}</h1><p className="font-mono text-xs text-muted">{code}</p></div>
         {desktop && <Tabs variant="segment" label="Layout" value={layout} onChange={setLayout} items={LAYOUTS} className="w-64" />}
+        {desktop && <Button icon={panelOpen ? ChevronRight : ChevronLeft} aria-label={panelOpen ? 'Hide room panel' : 'Show room panel'} aria-pressed={panelOpen} onClick={() => setPanelOpen((open) => !open)}>{panelOpen ? 'Hide panel' : 'Show panel'}</Button>}
         {timerPill}
         {desktop && <Button icon={UserPlus} variant="primary" onClick={() => setInvite(true)}>Invite</Button>}
         {!desktop && <Button iconOnly label="Change layout" icon={LayoutGrid} onClick={() => setLayout((l) => (l === 'stage' ? 'gallery' : l === 'gallery' ? 'speaker' : 'stage'))} />}
@@ -126,7 +128,7 @@ function MockRoomPage() {
           <div className="min-h-0 flex-1">{main}</div>
           {!desktop && layout === 'stage' && <div className="shrink-0 border-t border-line bg-surface p-2"><Filmstrip people={people} meId={meId} cols="row" onMore={() => setLayout('gallery')} /></div>}
         </section>
-        {desktop && (
+        {desktop && panelOpen && (
           <aside className="flex w-80 shrink-0 flex-col border-l border-line bg-surface" aria-label="Room panel">
             {layout === 'stage' && <div className="shrink-0 border-b border-line p-2"><Filmstrip people={people} meId={meId} cols="grid" onMore={() => setLayout('gallery')} /></div>}
             <Tabs label="Room panel" value={sideTab} onChange={setSideTab} items={SIDE} dense className="shrink-0 px-1" />

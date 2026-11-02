@@ -8,6 +8,7 @@ coverage/
 playwright-report/
 test-results/
 .vite/
+public/mediapipe-wasm/
 
 # Local environment and credentials
 .env
