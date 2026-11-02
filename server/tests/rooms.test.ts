@@ -179,4 +179,68 @@ describe('rooms', () => {
     const body = (await board.json()) as { items: typeof savedStroke[] }
     expect(body.items).toContainEqual(savedStroke)
   })
+
+  test('shares persisted Study stage state with members and rejects unsafe URLs', async () => {
+    const app = createApp()
+    const alice = await register(app, 'alice')
+    const bob = await register(app, 'bob')
+    const carol = await register(app, 'carol')
+
+    const created = await app.request('/api/v1/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${alice.accessToken}` },
+      body: JSON.stringify({ name: 'Study Stage', topic: '', mode: 'study' }),
+    })
+    expect(created.status).toBe(201)
+    const room = (await created.json()) as { id: string; code: string }
+
+    const nonMemberRead = await app.request(`/api/v1/rooms/${room.id}/stage`, {
+      headers: { Authorization: `Bearer ${bob.accessToken}` },
+    })
+    expect(nonMemberRead.status).toBe(403)
+
+    const joined = await app.request('/api/v1/rooms/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${bob.accessToken}` },
+      body: JSON.stringify({ code: room.code }),
+    })
+    expect(joined.status).toBe(200)
+
+    const stage = {
+      url: 'https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf',
+      title: 'Study playlist',
+      kind: 'youtube-playlist',
+    }
+    const saved = await app.request(`/api/v1/rooms/${room.id}/stage`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${alice.accessToken}` },
+      body: JSON.stringify(stage),
+    })
+    expect(saved.status).toBe(200)
+    const savedStage = (await saved.json()) as typeof stage & { controllerId: string; controllerName: string; updatedAt: string }
+    expect(savedStage.url).toBe(stage.url)
+    expect(savedStage.controllerId).toBe(alice.user.id)
+
+    const memberRead = await app.request(`/api/v1/rooms/${room.id}/stage`, {
+      headers: { Authorization: `Bearer ${bob.accessToken}` },
+    })
+    expect(memberRead.status).toBe(200)
+    expect((await memberRead.json() as { state: typeof savedStage | null }).state).toEqual(savedStage)
+
+    const nonMemberWrite = await app.request(`/api/v1/rooms/${room.id}/stage`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${carol.accessToken}` },
+      body: JSON.stringify(stage),
+    })
+    expect(nonMemberWrite.status).toBe(403)
+
+    for (const url of ['javascript:alert(1)', 'http://example.com']) {
+      const invalid = await app.request(`/api/v1/rooms/${room.id}/stage`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${alice.accessToken}` },
+        body: JSON.stringify({ ...stage, url }),
+      })
+      expect(invalid.status).toBe(400)
+    }
+  })
 })

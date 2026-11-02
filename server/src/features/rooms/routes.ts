@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { SignJWT } from 'jose'
-import { CreateRoomBody, JoinRoomBody, UpdateRoomBody } from '@studyroom/contract'
+import { CreateRoomBody, JoinRoomBody, RoomStageBody, UpdateRoomBody } from '@studyroom/contract'
 import { AppError } from '../../lib/errors'
 import { env } from '../../config/env'
 import { requireAuth } from '../../middleware/auth'
@@ -10,6 +10,7 @@ import { supabaseUser } from '../../middleware/supabaseAuth'
 import { rateLimit } from '../../middleware/rateLimit'
 import * as service from './service'
 import * as repo from './repo'
+import { isValidStageUrl } from './stageValidation'
 
 export const roomRoutes = new Hono()
 
@@ -27,6 +28,11 @@ const PlaybackStateBody = z.object({
   isPlaying: z.boolean(),
   positionSeconds: z.number().finite().min(0).max(86400),
 }).strict()
+const StageStateBody = RoomStageBody.superRefine(({ url }, context) => {
+  if (!isValidStageUrl(url)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['url'], message: 'URL must be a safe HTTPS URL without credentials' })
+  }
+})
 
 roomRoutes.get(
   '/preview/:code',
@@ -159,6 +165,27 @@ roomRoutes.put(
   async (c) => {
     const user = await supabaseUser(c.req.header('Authorization'))
     return c.json(await service.savePlaybackState(user.id, c.req.valid('param').id, c.req.valid('json')))
+  },
+)
+
+roomRoutes.get(
+  '/:id/stage',
+  rateLimit('room.live.read', (c) => String(c.get('clientIp'))),
+  zValidator('param', z.object({ id: z.string().uuid() })),
+  async (c) => {
+    const user = await supabaseUser(c.req.header('Authorization'))
+    return c.json({ state: await service.stageState(user.id, c.req.valid('param').id) })
+  },
+)
+
+roomRoutes.put(
+  '/:id/stage',
+  rateLimit('room.live.stage.write', (c) => String(c.get('clientIp'))),
+  zValidator('param', z.object({ id: z.string().uuid() })),
+  zValidator('json', StageStateBody),
+  async (c) => {
+    const user = await supabaseUser(c.req.header('Authorization'))
+    return c.json(await service.saveStageState(user.id, c.req.valid('param').id, c.req.valid('json')))
   },
 )
 

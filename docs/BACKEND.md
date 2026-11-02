@@ -37,6 +37,7 @@ The API validates bearer tokens through Supabase Auth; it does not store passwor
 - Live room keeps the approved content/speaker/gallery layout, room panels, invite actions, and slash commands; the paged gallery supports 20 participant tiles per desktop page.
 - Whiteboard strokes, custom hex colors, clear, and per-user undo are persisted; changes are sent as LiveKit data events, while late joiners and reconnecting clients load the canonical board from Postgres. Board notes can be downloaded as SVG.
 - Shared YouTube playback state is stored per room and sent as LiveKit data events; in-app search uses the server-only `YOUTUBE_API_KEY` proxy when configured.
+- The room Study stage stores one HTTPS study item per room, broadcasts changes over LiveKit, and loads the saved item for late joiners and reconnecting clients. Screen shares appear in the shared-content tabs for everyone in the room.
 - Schedule supports upcoming sessions and organizer create/update/cancel for rooms the user belongs to.
 - Avatar files use signed uploads into the public `avatars` bucket, limited to 5 MiB and JPEG/PNG/WebP.
 - PDFs are stored in the private `study-materials` bucket, limited to 25 MiB and PDF MIME type. Materials can be personal or shared with a selected room; room members can read shared files, while only the uploader can edit or remove them.
@@ -62,6 +63,7 @@ The API validates bearer tokens through Supabase Auth; it does not store passwor
 | `12_function_permissions.sql` | RPC execution grants |
 | `13_material_storage.sql` | Private PDF storage and room-shared material RLS |
 | `14_whiteboard_custom_colors.sql` | Validate custom whiteboard hex colors |
+| `16_room_stage.sql` | Shared Study stage state and member RLS |
 
 ### Manual verification
 
@@ -73,9 +75,10 @@ The API validates bearer tokens through Supabase Auth; it does not store passwor
 6. Send chat from both browsers; verify immediate delivery and that history returns after refresh/reconnect.
 7. Draw from each browser, select a preset or custom board color, join a third browser late, then test Undo mine and Clear all from both clients.
 8. Set a YouTube URL in Music; test play, pause, and seek from each browser and verify the other player follows. Set `YOUTUBE_API_KEY` in `server/.env` to reveal in-app search; search and choose a result, then verify the shared player updates in both browsers.
-9. Schedule a future session in a joined room, edit/cancel it as its organizer, then verify the empty state after cancellation.
-10. Upload, replace, and remove a supported avatar; verify an unsupported type or file over 5 MiB is rejected.
-11. Upload a PDF to a personal library and to a room. Verify the room member can open the shared PDF, a non-member cannot, and PDFs over 25 MiB are rejected.
-12. Open Focus Lock in live mode, grant camera permission, and start a tracked session. Confirm the banner reports on-device detection, then briefly leave frame and return, close eyes for several seconds, or show a phone while looking down to observe the timeline colors. Verify that camera/model initialization errors are surfaced and saved as untracked. Frames are never sent to the backend; only focus segments are persisted.
+9. In the Study tab, paste a YouTube playlist and choose **Show to everyone**; verify the other browser updates, reload it, and verify the saved item returns. Set a `leetcode.com` link and verify both browsers show the safe-link fallback. Choose **Share my screen** and verify the room switches to the Screen share tab.
+10. Schedule a future session in a joined room, edit/cancel it as its organizer, then verify the empty state after cancellation.
+11. Upload, replace, and remove a supported avatar; verify an unsupported type or file over 5 MiB is rejected.
+12. Upload a PDF to a personal library and to a room. Verify the room member can open the shared PDF, a non-member cannot, and PDFs over 25 MiB are rejected.
+13. Open Focus Lock in live mode, grant camera permission, and start a tracked session. Confirm the banner reports on-device detection, then briefly leave frame and return, close eyes for several seconds, or show a phone while looking down to observe the timeline colors. Verify that camera/model initialization errors are surfaced and saved as untracked. Frames are never sent to the backend; only focus segments are persisted.
 
 Face Lock uses the on-device MediaPipe Face Landmarker and EfficientDet-Lite0 phone detector. Its thresholds are initial estimates and require calibration across devices and lighting; it reports apparent presence/behavior, not attention or learning comprehension.

@@ -128,6 +128,23 @@ export const RoomMemberDto = z.object({
 })
 export type RoomMemberDto = z.infer<typeof RoomMemberDto>
 
+export const RoomStageKind = z.enum(['youtube-video', 'youtube-playlist', 'youtube-channel', 'other'])
+export type RoomStageKind = z.infer<typeof RoomStageKind>
+
+export const RoomStageBody = z.object({
+  url: z.string().trim().min(1).max(2048),
+  title: z.string().trim().min(1).max(120),
+  kind: RoomStageKind,
+}).strict()
+export type RoomStageBody = z.infer<typeof RoomStageBody>
+
+export const RoomStageDto = RoomStageBody.extend({
+  controllerId: z.string().uuid(),
+  controllerName: z.string(),
+  updatedAt: z.string(),
+})
+export type RoomStageDto = z.infer<typeof RoomStageDto>
+
 export const JoinRoomBody = z.object({
   code: z.string().min(4).max(16),
 })

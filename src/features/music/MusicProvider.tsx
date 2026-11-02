@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useRegisterCommands, type Command } from '@/shared/context/command'
 import { useToast } from '@/shared/ui/Toast'
 import { isValidUrl, normalizeUrl } from '@/shared/lib/format'
-import { safeHttpUrl, isValidYouTubeId } from '@/shared/lib/safeUrl'
+import { safeHttpUrl } from '@/shared/lib/safeUrl'
+import { resolveStudyEmbed } from '@/shared/lib/studyEmbed'
 import { usePrefs } from '../settings/prefs'
 
 export const QUICK_PICKS = [
@@ -27,20 +28,16 @@ export function toEmbed(raw: string): string | null {
   if (typeof window !== 'undefined' && safe.origin === window.location.origin) return null
 
   const host = safe.hostname.replace(/^www\./, '')
-  let id: string | null = null
-  if (host === 'youtu.be') id = safe.pathname.slice(1)
-  else if (host.endsWith('youtube.com')) id = safe.searchParams.get('v') ?? (safe.pathname.startsWith('/embed/') ? safe.pathname.split('/')[2] : null)
+  if (host !== 'youtu.be' && !host.endsWith('youtube.com')) return null
+  if (host === 'youtu.be' && !/^\/[\w-]{11}$/.test(safe.pathname)) return null
+  if (host !== 'youtu.be' && !safe.searchParams.has('v') && !safe.pathname.startsWith('/embed/') && !safe.searchParams.has('list')) return null
 
-  // Validate YouTube video ID
-  if (id && !isValidYouTubeId(id)) id = null
-
-  const list = safe.searchParams.get('list')
-  // Validate playlist ID (alphanumeric, hyphens, underscores)
-  const safeList = list && /^[\w-]+$/.test(list) ? list : null
-
-  if (!id && !safeList) return null
-  const base = id ? `https://www.youtube-nocookie.com/embed/${id}` : 'https://www.youtube-nocookie.com/embed/videoseries'
-  return `${base}?enablejsapi=1&autoplay=1&loop=1&playsinline=1${safeList ? `&list=${safeList}` : ''}`
+  const embed = resolveStudyEmbed(safe)
+  if (!embed) return null
+  const embedded = new URL(embed.src)
+  const list = embedded.searchParams.get('list')
+  const base = `${embedded.origin}${embedded.pathname}`
+  return `${base}?enablejsapi=1&autoplay=1&loop=1&playsinline=1${list ? `&list=${encodeURIComponent(list)}` : ''}`
 }
 
 interface Value { src: string | null; source: string; playing: boolean; volume: number; play: (link: string) => boolean; toggle: () => void; stop: () => void; setVolume: (v: number) => void }

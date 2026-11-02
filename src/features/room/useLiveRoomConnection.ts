@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Room } from 'livekit-client'
+import { RoomEvent, Track, type Participant as LiveKitParticipant, type Room } from 'livekit-client'
 import { repos } from '@/data'
 import { decodeLiveChat, encodeLiveChat, LIVE_CHAT_TOPIC, loadLiveChat, requestLiveKitToken, sendLiveChat, type LiveChatMessage } from './liveApi'
 import type { TileParticipant } from './ParticipantTile'
@@ -12,6 +12,11 @@ interface Options {
   initialCam: boolean | undefined
   userId: string | undefined
   runSlash: (text: string) => boolean
+}
+
+export interface LiveScreenShare {
+  participant: LiveKitParticipant
+  track: Track
 }
 
 function normalizeRoomConnectionError(cause: unknown) {
@@ -41,6 +46,8 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
   const [mic, setMic] = useState(initialMic ?? false)
   const [cam, setCam] = useState(initialCam ?? false)
   const [connected, setConnected] = useState(false)
+  const [screenShare, setScreenShare] = useState<LiveScreenShare | null>(null)
+  const [screenSharePending, setScreenSharePending] = useState(false)
   const [connecting, setConnecting] = useState(true)
   const [connectionFailed, setConnectionFailed] = useState(false)
   const [connectionAttempt, setConnectionAttempt] = useState(0)
@@ -85,6 +92,18 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     })
   }, [])
 
+  const refreshScreenShare = useCallback((room: Room) => {
+    const participants = [room.localParticipant, ...room.remoteParticipants.values()]
+    for (const participant of participants) {
+      const track = participant.getTrackPublication(Track.Source.ScreenShare)?.track
+      if (track) {
+        setScreenShare({ participant, track })
+        return
+      }
+    }
+    setScreenShare(null)
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     let room: Room | null = null
@@ -92,6 +111,7 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
       setConnecting(true)
       setConnectionFailed(false)
       setError(null)
+      setScreenShare(null)
       try {
         const rooms = await repos.rooms.listMine()
         const membership = rooms.find((item) => item.code.toUpperCase() === code.toUpperCase())
@@ -102,7 +122,7 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
         const credentials = await requestLiveKitToken(membership.id)
         if (cancelled) return
 
-        const { Room: LiveKitRoom, RoomEvent, Track } = await import('livekit-client')
+        const { Room: LiveKitRoom } = await import('livekit-client')
         if (cancelled) return
         room = new LiveKitRoom({ adaptiveStream: true, dynacast: true })
         roomRef.current = room
@@ -115,6 +135,11 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
               participantTile(participant, Track.Source.Camera, Track.Source.Microphone)),
           ]
           setParticipants(current)
+        }
+        const refreshMedia = () => {
+          if (!room) return
+          refreshParticipants()
+          refreshScreenShare(room)
         }
         const requestRaisedHands = () => {
           if (!room || room.state !== 'connected') return
@@ -129,19 +154,19 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
               delete updated[participant.identity]
               return updated
             })
-            refreshParticipants()
+            refreshMedia()
           })
           .on(RoomEvent.ConnectionStateChanged, () => {
             const nextConnected = room?.state === 'connected'
             setConnected(nextConnected)
             if (nextConnected) setError(null)
           })
-          .on(RoomEvent.TrackPublished, refreshParticipants)
-          .on(RoomEvent.TrackUnpublished, refreshParticipants)
-          .on(RoomEvent.TrackSubscribed, refreshParticipants)
-          .on(RoomEvent.TrackUnsubscribed, refreshParticipants)
-          .on(RoomEvent.TrackMuted, refreshParticipants)
-          .on(RoomEvent.TrackUnmuted, refreshParticipants)
+          .on(RoomEvent.TrackPublished, refreshMedia)
+          .on(RoomEvent.TrackUnpublished, refreshMedia)
+          .on(RoomEvent.TrackSubscribed, refreshMedia)
+          .on(RoomEvent.TrackUnsubscribed, refreshMedia)
+          .on(RoomEvent.TrackMuted, refreshMedia)
+          .on(RoomEvent.TrackUnmuted, refreshMedia)
           .on(RoomEvent.ActiveSpeakersChanged, refreshParticipants)
           .on(RoomEvent.DataReceived, (payload, sender, _kind, topic) => {
             if (topic === LIVE_CHAT_TOPIC) {
@@ -171,10 +196,13 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
           .on(RoomEvent.Reconnected, () => {
             setConnected(true)
             setError(null)
-            refreshParticipants()
+            refreshMedia()
             requestRaisedHands()
           })
-          .on(RoomEvent.Disconnected, () => setConnected(false))
+          .on(RoomEvent.Disconnected, () => {
+            setConnected(false)
+            setScreenShare(null)
+          })
         await room.connect(credentials.url, credentials.token)
         if (cancelled) {
           room.disconnect()
@@ -182,11 +210,11 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
         }
         setConnected(true)
         setConnectionFailed(false)
-        refreshParticipants()
+        refreshMedia()
         requestRaisedHands()
         await room.localParticipant.setMicrophoneEnabled(initialMic ?? false)
         await room.localParticipant.setCameraEnabled(initialCam ?? false)
-        refreshParticipants()
+        refreshMedia()
         try {
           await room.startAudio()
         } catch {
@@ -208,7 +236,7 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
       roomRef.current?.disconnect()
       roomRef.current = null
     }
-  }, [code, connectionAttempt, initialCam, initialMic, mergeMessages, userId])
+  }, [code, connectionAttempt, initialCam, initialMic, mergeMessages, refreshScreenShare, userId])
 
   useEffect(() => {
     if (!connectionFailed) return
@@ -291,6 +319,21 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     }
   }
 
+  const toggleScreenShare = async () => {
+    const room = roomRef.current
+    if (!room) return
+    const currentlySharing = Boolean(room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track)
+    setScreenSharePending(true)
+    try {
+      await room.localParticipant.setScreenShareEnabled(!currentlySharing)
+      refreshScreenShare(room)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not change screen sharing')
+    } finally {
+      setScreenSharePending(false)
+    }
+  }
+
   return {
     roomRef,
     liveRoom,
@@ -304,6 +347,9 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     mic,
     cam,
     connected,
+    screenShare,
+    screenSharing: Boolean(screenShare && screenShare.participant.identity === userId),
+    screenSharePending,
     connecting,
     connectionFailed,
     setConnectionAttempt,
@@ -315,5 +361,6 @@ export function useLiveRoomConnection({ code, initialMic, initialCam, userId, ru
     postChat,
     toggleMic,
     toggleCam,
+    toggleScreenShare,
   }
 }

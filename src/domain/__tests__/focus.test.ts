@@ -84,4 +84,19 @@ describe('helpers', () => {
     expect(toEmbed('https://youtu.be/dQw4w9WgXcQ')).toContain('youtube-nocookie.com/embed/dQw4w9WgXcQ')
     expect(toEmbed('https://example.com/song')).toBeNull()
   })
+  it('preserves the supported YouTube video and playlist music embeds', () => {
+    expect(toEmbed('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(
+      'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?enablejsapi=1&autoplay=1&loop=1&playsinline=1',
+    )
+    expect(toEmbed('https://www.youtube.com/embed/dQw4w9WgXcQ?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')).toBe(
+      'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?enablejsapi=1&autoplay=1&loop=1&playsinline=1&list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf',
+    )
+    expect(toEmbed('https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf')).toBe(
+      'https://www.youtube-nocookie.com/embed/videoseries?enablejsapi=1&autoplay=1&loop=1&playsinline=1&list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf',
+    )
+  })
+  it('does not broaden MusicProvider to Shorts or channel pages', () => {
+    expect(toEmbed('https://www.youtube.com/shorts/dQw4w9WgXcQ')).toBeNull()
+    expect(toEmbed('https://www.youtube.com/channel/UCBJycsmduvYEL83R_U4JriQ')).toBeNull()
+  })
 })

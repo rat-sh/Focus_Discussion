@@ -24,6 +24,7 @@ export const LIMITS = {
   'room.live.write': { key: 'room.live.write', rate: 120, intervalSec: 60, burst: 60, failClosed: true },
   'room.live.board.write': { key: 'room.live.board.write', rate: 240, intervalSec: 60, burst: 100, failClosed: true },
   'room.live.playback.write': { key: 'room.live.playback.write', rate: 30, intervalSec: 60, burst: 30, failClosed: true },
+  'room.live.stage.write': { key: 'room.live.stage.write', rate: 30, intervalSec: 60, burst: 30, failClosed: true },
   'youtube.search': { key: 'youtube.search', rate: 30, intervalSec: 60, burst: 20, failClosed: true },
   'youtube.status': { key: 'youtube.status', rate: 100, intervalSec: 60, burst: 100, failClosed: true },
   'schedule.write': { key: 'schedule.write', rate: 20, intervalSec: 60, burst: 20, failClosed: true },

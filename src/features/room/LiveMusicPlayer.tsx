@@ -3,22 +3,19 @@ import type { FormEvent } from 'react'
 import type { Room } from 'livekit-client'
 import { RoomEvent } from 'livekit-client'
 import { decodeLivePlaybackState, encodeLivePlaybackState, LIVE_PLAYBACK_TOPIC, loadLivePlayback, saveLivePlayback, type LivePlaybackState, type LivePlaybackStateInput } from './liveApi'
+import { resolveStudyEmbed } from '@/shared/lib/studyEmbed'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Field'
 import { YouTubeSearch } from './YouTubeSearch'
 
-function parseYouTubeId(input: string): string | null {
+export function parseYouTubeId(input: string): string | null {
   const value = input.trim()
   if (/^[A-Za-z0-9_-]{11}$/.test(value)) return value
   try {
     const url = new URL(value)
-    const host = url.hostname.toLowerCase()
-    if (host === 'youtu.be') {
-      const id = url.pathname.split('/').filter(Boolean)[0]
-      return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null
-    }
-    if (!['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'].includes(host)) return null
-    const id = url.searchParams.get('v') ?? url.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})/)?.[1]
+    const embed = resolveStudyEmbed(url)
+    if (embed?.kind !== 'youtube-video') return null
+    const id = new URL(embed.src).pathname.split('/').filter(Boolean)[1]
     return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null
   } catch {
     return null
