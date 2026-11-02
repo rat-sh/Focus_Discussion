@@ -67,6 +67,7 @@ Set the server-side `SUPABASE_URL` and `SUPABASE_ANON_KEY` environment variables
 | `12_function_permissions.sql` | RPC execution grants |
 | `13_material_storage.sql` | Private PDF storage and room-shared material RLS |
 | `14_whiteboard_custom_colors.sql` | Validate custom whiteboard hex colors |
+| `15_fix_friend_requests.sql` | Fix friend-request participant selection |
 | `16_room_stage.sql` | Shared Study stage state and member RLS |
 
 ### Manual verification

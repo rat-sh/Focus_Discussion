@@ -48,8 +48,11 @@ describe('friends and focus', () => {
     const reqs = await app.request('/api/v1/friends/requests', {
       headers: { Authorization: `Bearer ${b.accessToken}` },
     })
-    const list = (await reqs.json()) as { items: { id: string }[] }
+    const list = (await reqs.json()) as { items: { id: string; direction: string; user: { id: string } }[] }
     expect(list.items.length).toBe(1)
+    // Regression: the receiver must see the SENDER, not themselves.
+    expect(list.items[0]?.direction).toBe('incoming')
+    expect(list.items[0]?.user.id).toBe(a.user.id)
     const id = list.items[0]?.id
     if (!id) throw new Error('Expected a friend request in the test response')
 
