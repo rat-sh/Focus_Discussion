@@ -72,7 +72,7 @@ export async function listRequests(userId: string, db: SQL = getSql()) {
       p.user_id, p.name, p.handle::text AS handle, p.avatar_url, f.created_at
     FROM friendships f
     JOIN profiles p ON p.user_id = CASE
-      WHEN f.requested_by = f.user_a THEN f.user_b ELSE f.user_a
+      WHEN f.user_a = ${userId}::uuid THEN f.user_b ELSE f.user_a
     END
     WHERE f.status = 'pending'
       AND (f.user_a = ${userId}::uuid OR f.user_b = ${userId}::uuid)

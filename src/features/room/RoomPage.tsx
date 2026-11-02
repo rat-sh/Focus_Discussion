@@ -28,7 +28,7 @@ type StageTab = 'board' | 'material'
 type SideTab = 'chat' | 'doubts' | 'people' | 'music' | 'ranks'
 
 const LAYOUTS: TabItem<Layout>[] = [{ id: 'stage', label: 'Content' }, { id: 'speaker', label: 'Speaker' }, { id: 'gallery', label: 'Gallery' }]
-const STAGE_TABS: TabItem<StageTab>[] = [{ id: 'board', label: 'Board' }, { id: 'material', label: 'Material' }]
+const STAGE_TABS: TabItem<StageTab>[] = [{ id: 'board', label: 'Board' }, { id: 'material', label: 'Study' }]
 
 export function RoomPage() {
   return repos.kind === 'live' ? <LiveRoomPage /> : <MockRoomPage />

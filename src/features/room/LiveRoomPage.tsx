@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Ellipsis, Hand, LayoutGrid, MessageSquare, Mic, MicOff, MonitorUp, RefreshCw, UserPlus, Video, VideoOff } from 'lucide-react'
 import { useProfile } from '@/shared/context/profile'
@@ -15,17 +15,17 @@ import { LiveAudioTracks } from './LiveAudioTracks'
 import { MaterialStage } from './OtherStages'
 import { GalleryView, Filmstrip, SpeakerView } from './VideoViews'
 import { PeoplePanel } from './panels'
+import { ScreenShareStage } from './ScreenShareStage'
 import { useLiveRoomConnection } from './useLiveRoomConnection'
-import type { TileParticipant } from './ParticipantTile'
 
 const LiveMusicPlayer = lazy(() => import('./LiveMusicPlayer').then((module) => ({ default: module.LiveMusicPlayer })))
 const LiveWhiteboard = lazy(() => import('./LiveWhiteboard').then((module) => ({ default: module.LiveWhiteboard })))
 
 type Layout = 'stage' | 'speaker' | 'gallery'
-type StageTab = 'board' | 'material' | 'screen'
+type StageTab = 'board' | 'study' | 'screen'
 type SideTab = 'chat' | 'doubts' | 'people' | 'music' | 'ranks'
 const LAYOUTS: TabItem<Layout>[] = [{ id: 'stage', label: 'Content' }, { id: 'speaker', label: 'Speaker' }, { id: 'gallery', label: 'Gallery' }]
-const STAGE_TABS: TabItem<StageTab>[] = [{ id: 'board', label: 'Board' }, { id: 'material', label: 'Material' }]
+const STAGE_TABS: TabItem<StageTab>[] = [{ id: 'board', label: 'Board' }, { id: 'study', label: 'Study' }]
 const SIDE_TABS: TabItem<SideTab>[] = [
   { id: 'chat', label: 'Chat' }, { id: 'doubts', label: 'Doubts' }, { id: 'people', label: 'People' },
   { id: 'music', label: 'Music' }, { id: 'ranks', label: 'Ranks' },
@@ -51,16 +51,28 @@ export function LiveRoomPage() {
   const [panelOpen, setPanelOpen] = useState(true)
   const [sheet, setSheet] = useState<SideTab | 'more' | null>(null)
   const [invite, setInvite] = useState(false)
+  const showStudy = useCallback(() => {
+    setLayout('stage')
+    setStageTab('study')
+  }, [])
+  useEffect(() => {
+    if (!connection.screenShare) return
+    const timer = window.setTimeout(() => {
+      setLayout('stage')
+      setStageTab('screen')
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [connection.screenShare])
   const commands = useMemo<Command[]>(() => [
     { id: 'live-room-board', label: 'Show board', slash: 'board', run: () => { setLayout('stage'); setStageTab('board') } },
-    { id: 'live-room-material', label: 'Show material', slash: 'material', run: () => { setLayout('stage'); setStageTab('material') } },
+    { id: 'live-room-material', label: 'Show Study', slash: 'material', run: showStudy },
     { id: 'live-room-gallery', label: 'Gallery view', slash: 'gallery', run: () => setLayout('gallery') },
     { id: 'live-room-speaker', label: 'Speaker view', slash: 'speaker', run: () => setLayout('speaker') },
     { id: 'live-room-hand', label: 'Raise or lower hand', slash: 'hand', run: connection.toggleHand },
     { id: 'live-room-invite', label: 'Invite people', slash: 'invite', run: () => setInvite(true) },
     { id: 'live-room-doubts', label: 'Open doubts', slash: 'doubts', run: () => { setSideTab('doubts'); setSheet('doubts') } },
     { id: 'live-room-people', label: 'Open people', slash: 'people', run: () => { setSideTab('people'); setSheet('people') } },
-  ], [connection.toggleHand])
+  ], [connection.toggleHand, showStudy])
   useRegisterCommands('live-room', commands)
 
   const openPanel = (tab: SideTab) => {
@@ -71,11 +83,10 @@ export function LiveRoomPage() {
     else setSheet(tab)
   }
 
-  const screenSharer = connection.visibleParticipants.find((participant) => participant.screenShareTrack)
-  const stageTabs: TabItem<StageTab>[] = screenSharer
+  const stageTabs: TabItem<StageTab>[] = connection.screenShare
     ? [...STAGE_TABS, { id: 'screen', label: 'Screen share' }]
     : STAGE_TABS
-  const activeStageTab = stageTab === 'screen' && !screenSharer ? 'board' : stageTab
+  const activeStageTab = stageTab === 'screen' && !connection.screenShare ? 'board' : stageTab
 
   const roomContent = layout === 'gallery'
     ? <GalleryView people={connection.visibleParticipants} meId={profile?.id ?? ''} />
@@ -89,11 +100,20 @@ export function LiveRoomPage() {
               ? <Suspense fallback={<div className="grid h-full place-items-center text-sm text-muted">Loading shared board...</div>}>
                   <LiveWhiteboard roomId={connection.roomId} liveRoom={connection.liveRoom} connected={connection.connected} userId={profile?.id ?? ''} />
                 </Suspense>
-              : activeStageTab === 'material'
-                ? <MaterialStage roomId={connection.roomId ?? undefined} />
-                : activeStageTab === 'screen' && screenSharer?.screenShareTrack
-                  ? <ScreenShareView participant={screenSharer} />
-                : <div className="grid h-full place-items-center p-4 text-sm text-muted">Connecting to the shared board…</div>}
+              : activeStageTab === 'board'
+                ? <div className="grid h-full place-items-center p-4 text-sm text-muted">Connecting to the shared board…</div>
+                : null}
+            {connection.roomId && (
+              <div className={activeStageTab === 'study' ? 'h-full min-h-0' : 'hidden'}>
+                <MaterialStage
+                  roomId={connection.roomId}
+                  liveRoom={connection.liveRoom}
+                  onStageChange={showStudy}
+                  onShareScreen={connection.screenSharing || connection.screenSharePending ? undefined : () => { void connection.toggleScreenShare() }}
+                />
+              </div>
+            )}
+            {activeStageTab === 'screen' && connection.screenShare && <ScreenShareStage screenShare={connection.screenShare} />}
           </div>
         </div>
       )
@@ -194,25 +214,5 @@ export function LiveRoomPage() {
         </div>
       </Dialog>
     </main>
-  )
-}
-
-function ScreenShareView({ participant }: { participant: TileParticipant }) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const track = participant.screenShareTrack
-  useEffect(() => {
-    const element = videoRef.current
-    if (!element || !track) return undefined
-    track.attach(element)
-    return () => { track.detach(element) }
-  }, [track])
-
-  return (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-3">
-      <p className="flex shrink-0 items-center gap-2 text-sm text-muted"><MonitorUp size={16} aria-hidden />{participant.name} is sharing their screen</p>
-      {track
-        ? <video ref={videoRef} autoPlay playsInline muted aria-label={`${participant.name}'s shared screen`} className="min-h-0 flex-1 rounded-ui border border-line bg-black object-contain" />
-        : <p role="status" className="grid min-h-0 flex-1 place-items-center rounded-ui border border-line text-sm text-muted">Waiting for screen share…</p>}
-    </div>
   )
 }

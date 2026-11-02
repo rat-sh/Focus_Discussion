@@ -1,4 +1,4 @@
-import type { RoomDto, RoomMemberDto, RoomPreviewDto } from '@studyroom/contract'
+import type { RoomDto, RoomMemberDto, RoomPreviewDto, RoomStageDto, RoomStageKind } from '@studyroom/contract'
 import { AppError } from '../../lib/errors'
 import { randomInviteCode } from '../../lib/ids'
 import * as repo from './repo'
@@ -247,4 +247,35 @@ export async function savePlaybackState(
     positionSeconds: Math.round(state.positionSeconds),
   })
   return toPlaybackStateDto(saved)
+}
+
+function toRoomStageDto(row: repo.RoomStageStateRow): RoomStageDto {
+  return {
+    url: row.url,
+    title: row.title,
+    kind: row.kind,
+    controllerId: row.controller_id,
+    controllerName: row.controller_name,
+    updatedAt: new Date(row.updated_at).toISOString(),
+  }
+}
+
+async function requireStageMember(userId: string, roomId: string): Promise<void> {
+  if (!(await repo.isMember(roomId, userId))) throw AppError.forbidden('Join the room before accessing its Study stage')
+}
+
+export async function stageState(userId: string, roomId: string): Promise<RoomStageDto | null> {
+  await requireStageMember(userId, roomId)
+  const state = await repo.getStageState(roomId)
+  return state ? toRoomStageDto(state) : null
+}
+
+export async function saveStageState(
+  userId: string,
+  roomId: string,
+  state: { url: string; title: string; kind: RoomStageKind },
+): Promise<RoomStageDto> {
+  await requireStageMember(userId, roomId)
+  const saved = await repo.saveStageState(roomId, userId, state)
+  return toRoomStageDto(saved)
 }

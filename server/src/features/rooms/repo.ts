@@ -1,4 +1,5 @@
 import type { SQL } from 'bun'
+import type { RoomStageKind } from '@studyroom/contract'
 import { getSql } from '../../db/sql'
 
 export interface RoomRow {
@@ -39,6 +40,15 @@ export interface RoomPlaybackStateRow {
   video_id: string
   is_playing: boolean
   position_seconds: number
+  controller_id: string
+  controller_name: string
+  updated_at: Date
+}
+
+export interface RoomStageStateRow {
+  url: string
+  title: string
+  kind: RoomStageKind
   controller_id: string
   controller_name: string
   updated_at: Date
@@ -320,5 +330,37 @@ export async function savePlaybackState(
   `
   const result = await getPlaybackState(roomId, db)
   if (!result) throw new Error('save playback state failed')
+  return result
+}
+
+export async function getStageState(roomId: string, db: SQL = getSql()): Promise<RoomStageStateRow | null> {
+  const rows = await db<RoomStageStateRow[]>`
+    SELECT s.url, s.title, s.kind, s.controller_id, p.name AS controller_name, s.updated_at
+    FROM room_stage_state s
+    JOIN profiles p ON p.user_id = s.controller_id
+    WHERE s.room_id = ${roomId}::uuid
+    LIMIT 1
+  `
+  return rows[0] ?? null
+}
+
+export async function saveStageState(
+  roomId: string,
+  userId: string,
+  state: { url: string; title: string; kind: RoomStageKind },
+  db: SQL = getSql(),
+): Promise<RoomStageStateRow> {
+  await db`
+    INSERT INTO room_stage_state (room_id, url, title, kind, controller_id, updated_at)
+    VALUES (${roomId}::uuid, ${state.url}, ${state.title}, ${state.kind}, ${userId}::uuid, now())
+    ON CONFLICT (room_id) DO UPDATE SET
+      url = EXCLUDED.url,
+      title = EXCLUDED.title,
+      kind = EXCLUDED.kind,
+      controller_id = EXCLUDED.controller_id,
+      updated_at = EXCLUDED.updated_at
+  `
+  const result = await getStageState(roomId, db)
+  if (!result) throw new Error('save room stage state failed')
   return result
 }
